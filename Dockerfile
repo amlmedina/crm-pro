@@ -22,8 +22,7 @@ FROM base AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
-# Automatically listen on 0.0.0.0
-ENV PORT=3000
+# Railway inyecta PORT automáticamente — no forzar un puerto aquí
 
 # Create necessary directories for persistence
 RUN mkdir -p /app/storage/wa_session /app/storage/crm_data && chown -R node:node /app/storage
@@ -35,6 +34,6 @@ COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/server.js ./server.js
 COPY --from=builder /app/app/api ./app/api
 
-EXPOSE 3000
+# PORT es inyectado por Railway en tiempo de ejecución
 
 CMD ["node", "server.js"]
