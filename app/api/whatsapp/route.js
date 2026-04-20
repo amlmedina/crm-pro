@@ -74,7 +74,7 @@ function cleanPhone(raw = '') {
 }
 
 function toJid(phone) {
-    // WhatsApp JID para contacto personal
+    if (phone.includes('@lid')) return phone;
     return `${phone}@s.whatsapp.net`;
 }
 
@@ -157,7 +157,11 @@ export async function POST(req) {
             }
             const msgs = getMessages();
             let conversation = [];
-            const suffix = phone.slice(-10);
+            // Si es un lid, buscamos exactamente la llave o el sufijo sin el @lid
+            let suffix = phone.slice(-10);
+            if (phone.includes('@lid')) {
+                suffix = phone; 
+            }
 
             console.log(`[/api/whatsapp] Buscando historial para: ${phone} (suffix: ${suffix})`);
 

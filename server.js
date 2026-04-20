@@ -47,7 +47,7 @@ global.persistMessages = persistMessages;
 global.persistUnreads  = persistUnreads;
 
 // ── Versión del servidor (actualizar para confirmar despliegues) ───────────────
-const SERVER_VERSION = 'v2026.04.20-06';
+const SERVER_VERSION = 'v2026.04.20-LID';
 
 // ── Estado global ─────────────────────────────────────────────────────────────
 global.waStatus   = { connected: false, qr: null, phone: null, state: 'disconnected' };
@@ -156,7 +156,9 @@ async function startWhatsApp() {
         if (!rawJid || rawJid.includes('@g.us')) continue;
 
         const normalizedJid = jidNormalizedUser(rawJid);
-        const fullNumber    = normalizedJid.split('@')[0];
+        const isLid         = normalizedJid.includes('@lid');
+        const numPart       = normalizedJid.split('@')[0];
+        const fullNumber    = isLid ? `${numPart}@lid` : numPart;
 
         const mBody =
           msg.message?.conversation              ||
