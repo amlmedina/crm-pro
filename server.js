@@ -62,7 +62,8 @@ global.waUnreads = loadUnreads();   // { 'phoneNumber': count }
 
 // ── Motor WhatsApp (Baileys) ──────────────────────────────────────────────────
 async function startWhatsApp() {
-  ensureSessionDir();
+  console.log('[WA] Verificando directorios de datos...');
+  ensureDataDirs();
 
   // Dynamic import para Baileys ESM
   const {
@@ -78,17 +79,21 @@ async function startWhatsApp() {
   const { Boom } = await import('@hapi/boom');
   const QRCode = require('qrcode');
 
+  console.log('[WA] Cargando credenciales de sesión...');
   const { state, saveCreds } = await useMultiFileAuthState(SESSION_DIR);
 
   async function createSocket() {
+    console.log('[WA] Obteniendo versión de WhatsApp Web...');
     let version = [2, 3000, 1015901307]; // fallback default
     try {
       const { version: latestVersion } = await fetchLatestBaileysVersion();
       version = latestVersion;
+      console.log(`[WA] Usando versión: ${version.join('.')}`);
     } catch (e) {
-      console.warn('[WA] No se pudo obtener la última versión de WA, usando por defecto.');
+      console.warn('[WA] No se pudo obtener la última versión, usando fallback.');
     }
 
+    console.log('[WA] Iniciando socket...');
     const sock = makeWASocket({
       version,
       auth: {
@@ -107,6 +112,7 @@ async function startWhatsApp() {
       const { connection, lastDisconnect, qr } = update;
 
       if (qr) {
+        console.log('[WA] 📱 QR Generado exitosamente. Listo para escanear.');
         try {
           global.waStatus.qr = await QRCode.toDataURL(qr);
         } catch {
@@ -114,7 +120,6 @@ async function startWhatsApp() {
         }
         global.waStatus.connected = false;
         global.waStatus.state = 'qr';
-        console.log('[WA] 📱 QR listo — escanea desde el panel Admin → WhatsApp');
       }
 
       if (connection === 'close') {
@@ -124,12 +129,12 @@ async function startWhatsApp() {
         global.waStatus.state = 'disconnected';
         global.waStatus.qr = null;
         global.waSocket = null;
-        console.log(`[WA] Desconectado (código ${code}). Reconectar: ${shouldReconnect}`);
+        console.log(`[WA] ❌ Conexión cerrada (Código: ${code}). Reconectar: ${shouldReconnect}`);
         if (shouldReconnect) {
+          console.log('[WA] Intentando reconexión en 4 segundos...');
           setTimeout(createSocket, 4000);
         } else {
-          // Sesión cerrada — borrar credenciales para forzar nuevo QR
-          console.log('[WA] Sesión cerrada (logout). Borrando credenciales...');
+          console.log('[WA] Sesión cerrada definitivamente (logout). Limpiando...');
           try { fs.rmSync(SESSION_DIR, { recursive: true, force: true }); ensureDataDirs(); } catch {}
           setTimeout(startWhatsApp, 4000);
         }
@@ -140,7 +145,7 @@ async function startWhatsApp() {
         global.waStatus.state = 'open';
         global.waStatus.qr = null;
         global.waStatus.phone = sock.user?.id?.split(':')[0] || sock.user?.id || null;
-        console.log(`[WA] ✅ Conectado como ${global.waStatus.phone}`);
+        console.log(`[WA] ✅ ¡Conexión Exitosa como ${global.waStatus.phone}!`);
       }
     });
 
@@ -203,19 +208,42 @@ async function startWhatsApp() {
 }
 
 // ── Arranque del servidor ─────────────────────────────────────────────────────
-app.prepare().then(() => {
-  // Iniciar WhatsApp en background (no bloquea el servidor)
+// ── Inicio del Servidor ──────────────────────────────────────────────────────
+async function main() {
+  console.log('--- CRM Pro Boot Sequence ---');
+  
+  ensureDataDirs();
+  console.log(`[System] BASE_STORAGE: ${BASE_STORAGE}`);
+  
+  // Prueba de escritura rápida para verificar persistencia
+  try {
+    const testFile = path.join(BASE_STORAGE, '.write_test');
+    fs.writeFileSync(testFile, Date.now().toString());
+    console.log('[System] Persistencia: OK (Escritura verificada)');
+  } catch (e) {
+    console.error('[System] ❌ ERROR DE PERSISTENCIA:', e.message);
+  }
+
+  // Iniciar WhatsApp inmediatamente
+  console.log('[WA] Iniciando motor de WhatsApp...');
   startWhatsApp().catch((err) => {
-    console.error('[WA] ⚠️  Error iniciando WhatsApp:', err.message);
-    console.error('[WA] El CRM funcionará sin el módulo WhatsApp.');
+    console.error('[WA] ⚠️ Error crítico: ', err.message);
   });
+
+  // Preparar Next.js
+  console.log('[Next] Preparando entorno Next.js...');
+  await app.prepare();
 
   createServer((req, res) => {
     const parsedUrl = parse(req.url, true);
     handle(req, res, parsedUrl);
   }).listen(port, '0.0.0.0', () => {
-    console.log(`\n🚀 CRM Pro corriendo en puerto ${port}`);
-    console.log(`📱 WhatsApp: iniciando en background...`);
-    console.log(`   → Abre el panel Admin para escanear el QR\n`);
+    console.log(`\n🚀 PORTO: ${port} | CRM Pro ONLINE`);
+    console.log(`📱 WhatsApp Status: ${global.waStatus.state}`);
+    console.log(`   → Si no ves el botón en 30s, revisa los logs de Railway\n`);
   });
+}
+
+main().catch(err => {
+  console.error('[Main] Fallo fatal en el servidor:', err);
 });
