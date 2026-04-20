@@ -60,8 +60,23 @@ global.waSocket = null;
 global.waMessages = loadMessages(); // { 'phoneNumber': [{...}] }
 global.waUnreads = loadUnreads();   // { 'phoneNumber': count }
 
-// ── Motor WhatsApp (Baileys) ──────────────────────────────────────────────────
+// ── Motor WhatsApp (Baileys) - Indestructible Loop ───────────────────────────
 async function startWhatsApp() {
+  let attempt = 0;
+  while (true) {
+    attempt++;
+    console.log(`[WA] Iniciando motor... (intento #${attempt})`);
+    try {
+      await runWhatsAppSession();
+    } catch (err) {
+      console.error(`[WA] ⚠️ Sesión terminó con error: ${err?.message}`);
+      console.log('[WA] Reiniciando en 8 segundos...');
+    }
+    await new Promise(r => setTimeout(r, 8000));
+  }
+}
+
+async function runWhatsAppSession() {
   console.log('[WA] Verificando directorios de datos...');
   ensureDataDirs();
 
@@ -82,76 +97,77 @@ async function startWhatsApp() {
   console.log('[WA] Cargando credenciales de sesión...');
   const { state, saveCreds } = await useMultiFileAuthState(SESSION_DIR);
 
-  async function createSocket() {
-    console.log('[WA] Obteniendo versión de WhatsApp Web...');
-    let version = [2, 3000, 1015901307]; // fallback default
-    try {
-      const { version: latestVersion } = await fetchLatestBaileysVersion();
-      version = latestVersion;
-      console.log(`[WA] Usando versión: ${version.join('.')}`);
-    } catch (e) {
-      console.warn('[WA] No se pudo obtener la última versión, usando fallback.');
-    }
+  // createSocket retorna una Promesa que se resuelve cuando la sesión termina
+  // Esto permite que el while(true) de startWhatsApp maneje los reinicios
+  function createSocket() {
+    return new Promise(async (resolve, reject) => {
+      console.log('[WA] Obteniendo versión de WhatsApp Web...');
+      let version = [2, 3000, 1015901307];
+      try {
+        const { version: latestVersion } = await fetchLatestBaileysVersion();
+        version = latestVersion;
+        console.log(`[WA] Usando versión: ${version.join('.')}`);
+      } catch (e) {
+        console.warn('[WA] No se pudo obtener la última versión, usando fallback.');
+      }
 
-    console.log('[WA] Iniciando socket...');
-    const sock = makeWASocket({
-      version,
-      auth: {
-        creds: state.creds,
-        keys: makeCacheableSignalKeyStore(state.keys, console)
-      },
-      printQRInTerminal: false,
-      browser: Browsers.macOS('Desktop'),
-      getMessage: async () => ({ conversation: '' }),
-      // ★ CLAVE: Deshabilitar historial completo para evitar timeout que mata el proceso
-      syncFullHistory: false,
-      // Ignorar mensajes de historial antiguo, solo queremos los nuevos
-      shouldSyncHistoryMessage: () => false,
-    });
+      console.log('[WA] Iniciando socket...');
+      const sock = makeWASocket({
+        version,
+        auth: {
+          creds: state.creds,
+          keys: makeCacheableSignalKeyStore(state.keys, console)
+        },
+        printQRInTerminal: false,
+        browser: Browsers.macOS('Desktop'),
+        getMessage: async () => ({ conversation: '' }),
+      });
 
-    global.waSocket = sock;
+      global.waSocket = sock;
 
-    // Eventos de conexión
-    sock.ev.on('connection.update', async (update) => {
-      const { connection, lastDisconnect, qr } = update;
+      // Eventos de conexión
+      sock.ev.on('connection.update', async (update) => {
+        const { connection, lastDisconnect, qr } = update;
 
-      if (qr) {
-        console.log('[WA] 📱 QR Generado exitosamente. Listo para escanear.');
-        try {
-          global.waStatus.qr = await QRCode.toDataURL(qr);
-        } catch {
-          global.waStatus.qr = qr; // fallback: string raw
+        if (qr) {
+          console.log('[WA] 📱 QR Generado. Escanea desde el panel Admin.');
+          try {
+            global.waStatus.qr = await QRCode.toDataURL(qr);
+          } catch {
+            global.waStatus.qr = qr;
+          }
+          global.waStatus.connected = false;
+          global.waStatus.state = 'qr';
         }
-        global.waStatus.connected = false;
-        global.waStatus.state = 'qr';
-      }
 
-      if (connection === 'close') {
-        const code = new Boom(lastDisconnect?.error)?.output?.statusCode;
-        const shouldReconnect = code !== DisconnectReason.loggedOut;
-        global.waStatus.connected = false;
-        global.waStatus.state = 'disconnected';
-        global.waStatus.qr = null;
-        global.waSocket = null;
-        console.log(`[WA] ❌ Conexión cerrada (Código: ${code}). Reconectar: ${shouldReconnect}`);
-        if (shouldReconnect) {
-          console.log('[WA] Intentando reconexión en 4 segundos...');
-          setTimeout(createSocket, 4000);
-        } else {
-          console.log('[WA] Sesión cerrada definitivamente (logout). Limpiando...');
-          try { fs.rmSync(SESSION_DIR, { recursive: true, force: true }); ensureDataDirs(); } catch {}
-          setTimeout(startWhatsApp, 4000);
+        if (connection === 'close') {
+          const code = new Boom(lastDisconnect?.error)?.output?.statusCode;
+          const shouldReconnect = code !== DisconnectReason.loggedOut;
+          global.waStatus.connected = false;
+          global.waStatus.state = 'disconnected';
+          global.waStatus.qr = null;
+          global.waSocket = null;
+          console.log(`[WA] ❌ Conexión cerrada (Código: ${code}). Reconectar: ${shouldReconnect}`);
+
+          if (!shouldReconnect) {
+            // Logout definitivo — limpiar credenciales y rechazar para que el loop reinicie
+            console.log('[WA] Logout detectado. Limpiando sesión...');
+            try { fs.rmSync(SESSION_DIR, { recursive: true, force: true }); ensureDataDirs(); } catch {}
+            reject(new Error('Logout'));
+          } else {
+            // Reconexión normal — resolver para que el loop externo reintente
+            resolve();
+          }
         }
-      }
 
-      if (connection === 'open') {
-        global.waStatus.connected = true;
-        global.waStatus.state = 'open';
-        global.waStatus.qr = null;
-        global.waStatus.phone = sock.user?.id?.split(':')[0] || sock.user?.id || null;
-        console.log(`[WA] ✅ ¡Conexión Exitosa como ${global.waStatus.phone}!`);
-      }
-    });
+        if (connection === 'open') {
+          global.waStatus.connected = true;
+          global.waStatus.state = 'open';
+          global.waStatus.qr = null;
+          global.waStatus.phone = sock.user?.id?.split(':')[0] || sock.user?.id || null;
+          console.log(`[WA] ✅ ¡Conexión Exitosa como ${global.waStatus.phone}!`);
+        }
+      });
 
     // Guardar credenciales cuando se actualicen
     sock.ev.on('creds.update', saveCreds);
@@ -221,14 +237,11 @@ async function startWhatsApp() {
           }
         }
       }
-    });
+    }); // fin del Promise de createSocket
+  } // fin de createSocket
 
-    ensureDataDirs();
-    return sock;
-  }
-
-  createSocket();
-}
+  await createSocket();
+} // fin de runWhatsAppSession
 
 // ── Arranque del servidor ─────────────────────────────────────────────────────
 // ── Inicio del Servidor ──────────────────────────────────────────────────────
