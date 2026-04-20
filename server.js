@@ -154,12 +154,19 @@ async function startWhatsApp() {
 
     // Listener de mensajes entrantes
     sock.ev.on('messages.upsert', async (m) => {
+      console.log(`[WA-RAW] Recibido evento messages.upsert: type=${m.type}, count=${m.messages?.length}`);
+      
       // Capturamos tanto notificaciones nuevas como mensajes de sincronización (append)
       if (m.type === 'notify' || m.type === 'append') {
         for (const msg of m.messages) {
+          console.log(`[WA-RAW-MSG] ID: ${msg.key.id}, fromMe: ${msg.key.fromMe}, remoteJid: ${msg.key.remoteJid}, hasMessage: ${!!msg.message}`);
+          
           if (!msg.key.fromMe && msg.message) {
             const rawJid = msg.key.remoteJid;
-            if (!rawJid || rawJid.includes('@g.us')) continue;
+            if (!rawJid || rawJid.includes('@g.us')) {
+                console.log(`[WA-RAW-MSG] Ignorando (es grupo o no tiene remoteJid)`);
+                continue;
+            }
 
             const normalizedJid = jidNormalizedUser(rawJid);
             // Limpieza radical: quitar cualquier dominio (@s.whatsapp.net, @lid, etc.)
