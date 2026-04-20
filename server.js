@@ -152,51 +152,59 @@ async function startWhatsApp() {
     // Guardar credenciales cuando se actualicen
     sock.ev.on('creds.update', saveCreds);
 
-    // Mensajes entrantes
-    sock.ev.on('messages.upsert', ({ messages, type }) => {
-      if (type !== 'notify') return;
+    // Listener de mensajes entrantes
+    sock.ev.on('messages.upsert', async (m) => {
+      if (m.type === 'notify') {
+        for (const msg of m.messages) {
+          if (!msg.key.fromMe && msg.message) {
+            const rawJid = msg.key.remoteJid;
+            if (!rawJid || rawJid.includes('@g.us')) continue;
 
-      for (const msg of messages) {
-        if (msg.key.fromMe) continue;
+            const normalizedJid = jidNormalizedUser(rawJid);
+            const fullNumber = normalizedJid.replace('@s.whatsapp.net', '');
+            // Identificador único por los últimos 10 dígitos (Fuzzy Match)
+            const fromSuffix = fullNumber.slice(-10);
+            
+            // Extracción de contenido inteligente
+            const mBody = msg.message?.conversation || 
+                          msg.message?.extendedTextMessage?.text || 
+                          msg.message?.imageMessage?.caption || 
+                          msg.message?.videoMessage?.caption;
+            
+            let content = mBody;
+            if (!content) {
+              if (msg.message?.imageMessage) content = '[Imagen 🖼️]';
+              else if (msg.message?.videoMessage) content = '[Video 📹]';
+              else if (msg.message?.audioMessage) content = '[Audio 🎙️]';
+              else if (msg.message?.documentMessage) content = '[Documento 📄]';
+              else if (msg.message?.stickerMessage) content = '[Sticker]';
+              else content = '[Mensaje no soportado o Reacción]';
+            }
 
-        const rawJid = msg.key.remoteJid;
-        if (!rawJid || rawJid.includes('@g.us')) continue; // Ignorar grupos
+            const ts = msg.messageTimestamp;
+            const entry = {
+              id: msg.key.id || `${Date.now()}`,
+              from: fullNumber,
+              text: content,
+              fromMe: false,
+              timestamp: ts * 1000,
+            };
 
-        const normalizedJid = jidNormalizedUser(rawJid);
-        const from = normalizedJid.replace('@s.whatsapp.net', '');
-        
-        const content = msg.message?.conversation || 
-                        msg.message?.extendedTextMessage?.text || 
-                        msg.message?.imageMessage?.caption;
+            // Guardar usando el número completo como llave principal
+            if (!global.waMessages[fullNumber]) global.waMessages[fullNumber] = [];
+            global.waMessages[fullNumber].push(entry);
+            
+            console.log(`[WA] 📨 Mensaje de ${fullNumber} (${fromSuffix}): ${content.substring(0, 30)}`);
+            
+            // Incrementar no leídos (usando el sufijo para que el CRM lo encuentre fácil)
+            if (ts > (Date.now() / 1000) - 60) {
+              global.waUnreads[fullNumber] = (global.waUnreads[fullNumber] || 0) + 1;
+              persistUnreads();
+            }
 
-        if (!content) continue;
-
-        if (from.endsWith('@lid')) {
-          console.log('[WA-DEBUG-LID] Mensaje recibido de LID. Key:', JSON.stringify(msg.key));
-          console.log('[WA-DEBUG-LID] Message keys:', Object.keys(msg.message || {}));
+            persistMessages();
+          }
         }
-
-        const ts = msg.messageTimestamp || Math.floor(Date.now() / 1000);
-        
-        const entry = {
-          id: msg.key.id || `${Date.now()}`,
-          from,
-          text: content,
-          fromMe: false,
-          timestamp: ts * 1000,
-        };
-
-        if (!global.waMessages[from]) global.waMessages[from] = [];
-        global.waMessages[from].push(entry);
-        persistMessages();
-
-        // Si el mensaje es reciente (no de historial inicial), aumentar unread
-        if (ts > (Date.now() / 1000) - 60) {
-          global.waUnreads[from] = (global.waUnreads[from] || 0) + 1;
-          persistUnreads();
-        }
-
-        console.log(`[WA] 📨 Mensaje entrante de ${from}: ${content.substring(0, 40)}`);
       }
     });
 

@@ -109,8 +109,12 @@ export async function POST(req) {
             let conversation = [];
             const suffix = phone.slice(-10);
 
+            console.log(`[/api/whatsapp] Buscando historial para: ${phone} (suffix: ${suffix})`);
+
             for (const key of Object.keys(msgs)) {
-                if (key.endsWith(suffix)) {
+                // Si la llave de la base de datos termina en nuestro sufijo, es un match.
+                // Ej: key '52155...' termina en '55...'
+                if (key.endsWith(suffix) || suffix.endsWith(key.slice(-10))) {
                     conversation = [...conversation, ...msgs[key]];
                 }
             }
