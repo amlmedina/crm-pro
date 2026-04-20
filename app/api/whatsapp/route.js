@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+import fs from 'fs';
+import path from 'path';
 
 /**
  * /api/whatsapp — Proxy interno hacia el singleton de Baileys
@@ -6,6 +8,12 @@ import { NextResponse } from 'next/server';
  * Lee global.waSocket / global.waStatus / global.waMessages
  * que son inicializados por server.js al arrancar.
  */
+
+// ── Configuración de Rutas (Sincronizado con server.js) ──────────────────────
+const BASE_STORAGE = fs.existsSync('/app/storage') ? '/app/storage' : process.cwd();
+const SESSION_DIR = path.join(BASE_STORAGE, 'wa_session');
+const MESSAGES_FILE = path.join(SESSION_DIR, 'messages.json');
+const UNREADS_FILE = path.join(SESSION_DIR, 'unreads.json');
 
 function getSocket() {
     return global.waSocket || null;
@@ -16,7 +24,48 @@ function getStatus() {
 }
 
 function getMessages() {
-    return global.waMessages || {};
+    // Intentar memoria primero, luego disco (Source of Truth)
+    if (global.waMessages && Object.keys(global.waMessages).length > 0) return global.waMessages;
+    try {
+        if (fs.existsSync(MESSAGES_FILE)) {
+            const data = JSON.parse(fs.readFileSync(MESSAGES_FILE, 'utf-8'));
+            global.waMessages = data;
+            return data;
+        }
+    } catch (e) {
+        console.error('[API-WA] Error leyendo mensajes de disco:', e.message);
+    }
+    return {};
+}
+
+function getUnreads() {
+    if (global.waUnreads && Object.keys(global.waUnreads).length > 0) return global.waUnreads;
+    try {
+        if (fs.existsSync(UNREADS_FILE)) {
+            const data = JSON.parse(fs.readFileSync(UNREADS_FILE, 'utf-8'));
+            global.waUnreads = data;
+            return data;
+        }
+    } catch {}
+    return {};
+}
+
+function persistMessages(data) {
+    global.waMessages = data;
+    try {
+        if (!fs.existsSync(SESSION_DIR)) fs.mkdirSync(SESSION_DIR, { recursive: true });
+        fs.writeFileSync(MESSAGES_FILE, JSON.stringify(data), 'utf-8');
+    } catch (e) {
+        console.error('[API-WA] Error persistiendo mensajes:', e.message);
+    }
+}
+
+function persistUnreads(data) {
+    global.waUnreads = data;
+    try {
+        if (!fs.existsSync(SESSION_DIR)) fs.mkdirSync(SESSION_DIR, { recursive: true });
+        fs.writeFileSync(UNREADS_FILE, JSON.stringify(data), 'utf-8');
+    } catch {}
 }
 
 function cleanPhone(raw = '') {
@@ -93,8 +142,9 @@ export async function POST(req) {
                 fromMe: true,
                 timestamp: Date.now(),
             });
-            // Persistir en archivo via el servidor
-            if (global.persistMessages) global.persistMessages();
+            
+            // Persistir inmediatamente en el disco (Improves cloud sync)
+            persistMessages(msgs);
 
             return NextResponse.json({ ok: true, to: phone });
         }
@@ -125,7 +175,7 @@ export async function POST(req) {
 
         // ── UNREAD ──────────────────────────────────────────────────
         if (action === 'unread') {
-            const allUnreads = global.waUnreads || {};
+            const allUnreads = getUnreads();
             const reduced = {};
             // Group unreads by the last 10 digits
             for (const [key, count] of Object.entries(allUnreads)) {
@@ -136,6 +186,23 @@ export async function POST(req) {
             return NextResponse.json(reduced);
         }
 
+        // ── DEBUG (Verificar persistencia) ──────────────────────────
+        if (action === 'debug') {
+            return NextResponse.json({
+                storage_path: BASE_STORAGE,
+                files: {
+                    messages: fs.existsSync(MESSAGES_FILE),
+                    unreads: fs.existsSync(UNREADS_FILE),
+                    session: fs.existsSync(SESSION_DIR)
+                },
+                memory: {
+                    has_socket: !!global.waSocket,
+                    messages_count: Object.keys(global.waMessages || {}).length,
+                    unreads_count: Object.keys(global.waUnreads || {}).length
+                }
+            });
+        }
+
         // ── THREADS (Active chat numbers) ───────────────────────────
         if (action === 'threads') {
             const msgs = getMessages();
@@ -144,16 +211,17 @@ export async function POST(req) {
         }
         if (action === 'read_all') {
             const phone = cleanPhone(to || '');
-            if (phone && global.waUnreads) {
+            if (phone) {
+                const currentUnreads = getUnreads();
                 const suffix = phone.slice(-10);
                 let changed = false;
-                for (const key of Object.keys(global.waUnreads)) {
+                for (const key of Object.keys(currentUnreads)) {
                     if (key.endsWith(suffix)) {
-                        global.waUnreads[key] = 0;
+                        currentUnreads[key] = 0;
                         changed = true;
                     }
                 }
-                if (changed && global.persistUnreads) global.persistUnreads();
+                if (changed) persistUnreads(currentUnreads);
             }
             return NextResponse.json({ ok: true });
         }
