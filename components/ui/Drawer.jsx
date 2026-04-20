@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { api } from '@/lib/api';
 import Swal from 'sweetalert2';
 
-export default function Drawer({ open, onClose, lead, tab, setTab, cfg, user, refreshLeads }) {
+export default function Drawer({ open, onClose, lead, leads, tab, setTab, cfg, user, refreshLeads }) {
   const [f, setF] = useState({});
   const [cfs, setCfs] = useState({});
   const [loading, setLoading] = useState(false);
@@ -112,6 +112,44 @@ export default function Drawer({ open, onClose, lead, tab, setTab, cfg, user, re
   }, [tab, lead]);
   // ─────────────────────────────────────────────────────────
 
+  // ─────────────────────────────────────────────────────────
+  async function mergeVirtualLead() {
+     const options = {};
+     leads.filter(l => !l.isUnknown && l.Nombre_Persona).forEach(l => {
+       options[l.ID_Contacto] = `${l.Nombre_Persona} (${l.Nombre_Empresa || 'Sin empresa'}) - ${l.Telefono || 'Sin Tel'}`;
+     });
+
+     const { value: selectedId } = await Swal.fire({
+       title: 'Vincular Contacto',
+       text: 'Selecciona el lead existente al cual asignar este número / LID.',
+       input: 'select',
+       inputOptions: options,
+       inputPlaceholder: '— Selecciona un Contacto —',
+       showCancelButton: true,
+       confirmButtonText: 'Vincular',
+       cancelButtonText: 'Cancelar'
+     });
+
+     if (selectedId) {
+        const targetLead = leads.find(l => String(l.ID_Contacto) === String(selectedId));
+        if (targetLead) {
+           const backupPhone = targetLead.Telefono;
+           targetLead.Telefono = lead.Telefono; 
+           targetLead.Notas = (targetLead.Notas || '') + `\n[Sistema] Contacto fusionado con LID: ${lead.Telefono} (Tel antigo: ${backupPhone || 'N/A'})`;
+           
+           setLoading(true);
+           try {
+              await api('saveContact', targetLead);
+              await refreshLeads();
+              onClose();
+              Swal.fire('Vinculado', 'El número de WhatsApp ha sido enlazado a este cliente.', 'success');
+           } catch {
+              Swal.fire('Error', 'No se pudo vincular en la base de datos.', 'error');
+           }
+           setLoading(false);
+        }
+     }
+  }
   // ─────────────────────────────────────────────────────────
   // Quick Actions (Tasks & Status)
   
@@ -362,6 +400,19 @@ export default function Drawer({ open, onClose, lead, tab, setTab, cfg, user, re
           </div>
 
           <div className={`dpanel ${tab === 'perfil' ? 'on' : ''}`}>
+             
+             {lead?.isUnknown && (
+                <div style={{ marginBottom: '20px', padding: '16px', background: 'var(--s2)', borderRadius: '8px', border: '1px dashed var(--brd)' }}>
+                   <p className="stitle" style={{margin: '0 0 8px 0'}}>👤 Contacto Virtual (No guardado)</p>
+                   <p style={{fontSize:'0.85rem', color:'var(--text2)', marginBottom:'16px'}}>Este usuario se comunicó por WhatsApp pero no está registrado en tu CRM.</p>
+                   
+                   <button className="btn bb" onClick={mergeVirtualLead} disabled={loading} style={{width:'100%', marginBottom: '10px'}}>
+                     🔗 Enlazar a un prospecto o cliente existente
+                   </button>
+                   <div style={{textAlign:'center', fontSize:'0.75rem', color:'var(--text2)', marginBottom: '10px'}}>O registra sus datos aquí abajo y guarda los cambios para crearlo.</div>
+                </div>
+             )}
+
              <p className="stitle">Datos de Contacto</p>
              <div className="fgrid">
                 <div className="fg full"><label>Nombre</label><input type="text" value={f.Nombre_Persona || ''} onChange={e => setF({...f, Nombre_Persona: e.target.value})} /></div>
