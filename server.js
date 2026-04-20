@@ -103,6 +103,10 @@ async function startWhatsApp() {
       printQRInTerminal: false,
       browser: Browsers.macOS('Desktop'),
       getMessage: async () => ({ conversation: '' }),
+      // ★ CLAVE: Deshabilitar historial completo para evitar timeout que mata el proceso
+      syncFullHistory: false,
+      // Ignorar mensajes de historial antiguo, solo queremos los nuevos
+      shouldSyncHistoryMessage: () => false,
     });
 
     global.waSocket = sock;
@@ -265,4 +269,13 @@ async function main() {
 
 main().catch(err => {
   console.error('[Main] Fallo fatal en el servidor:', err);
+});
+
+// ── Prevenir que errores no capturados maten el proceso en Railway ─────────────
+process.on('uncaughtException', (err) => {
+  console.error('[Process] ⚠️ Error no capturado (el servidor sigue corriendo):', err?.message);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[Process] ⚠️ Promesa rechazada sin manejar (el servidor sigue corriendo):', reason);
 });
