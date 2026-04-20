@@ -210,8 +210,18 @@ export async function POST(req) {
         // ── THREADS (Active chat numbers) ───────────────────────────
         if (action === 'threads') {
             const msgs = getMessages();
-            // Retornar lista de números únicos que han tenido conversación
-            return NextResponse.json(Object.keys(msgs));
+            const threadData = {};
+            for (const [threadId, chatArray] of Object.entries(msgs)) {
+                let lastPushName = '';
+                for (let i = chatArray.length - 1; i >= 0; i--) {
+                    if (chatArray[i].pushName) {
+                        lastPushName = chatArray[i].pushName;
+                        break;
+                    }
+                }
+                threadData[threadId] = { id: threadId, pushName: lastPushName };
+            }
+            return NextResponse.json(Object.values(threadData));
         }
         if (action === 'read_all') {
             const phone = cleanPhone(to || '');

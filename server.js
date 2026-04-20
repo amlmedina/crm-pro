@@ -184,6 +184,7 @@ async function startWhatsApp() {
           text:      content,
           fromMe:    false,
           timestamp: ts * 1000,
+          pushName:  msg.pushName || ''
         };
 
         if (!global.waMessages[fullNumber]) global.waMessages[fullNumber] = [];

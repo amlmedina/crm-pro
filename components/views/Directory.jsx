@@ -80,18 +80,21 @@ export default function Directory({ leads, cfg, user, openDrawer, hideUnknowns, 
     const leadPhones = new Set(leads.map(l => cleanPhoneStr(l.Telefono).slice(-10)));
     
     const unknownLeads = threads
-      .filter(tNum => {
-        const suffix = tNum.slice(-10);
+      .filter(t => {
+        const suffix = t.id.slice(-10);
         return !leadPhones.has(suffix);
       })
-      .map(tNum => ({
-        ID_Contacto: `unk_${tNum}`,
-        Nombre_Persona: `Desconocido (${tNum})`,
-        Nombre_Empresa: 'No registrado',
-        Telefono: tNum,
-        Estado_Funnel: 'Desconocido',
-        isUnknown: true
-      }));
+      .map(t => {
+         const dn = t.pushName ? `${t.pushName} [LID]` : `Desconocido (${t.id})`;
+         return {
+           ID_Contacto: `unk_${t.id}`,
+           Nombre_Persona: dn,
+           Nombre_Empresa: 'No registrado',
+           Telefono: t.id,
+           Estado_Funnel: 'Desconocido',
+           isUnknown: true
+         };
+      });
 
     // 2. Merge actual leads + unknown leads based on props
     let fullList = [];
