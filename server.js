@@ -47,7 +47,7 @@ global.persistMessages = persistMessages;
 global.persistUnreads  = persistUnreads;
 
 // ── Versión del servidor (actualizar para confirmar despliegues) ───────────────
-const SERVER_VERSION = 'v2026.04.20-05';
+const SERVER_VERSION = 'v2026.04.20-06';
 
 // ── Estado global ─────────────────────────────────────────────────────────────
 global.waStatus   = { connected: false, qr: null, phone: null, state: 'disconnected' };
@@ -93,6 +93,9 @@ async function startWhatsApp() {
       printQRInTerminal: false,
       browser: Browsers.macOS('Desktop'),
       getMessage: async () => ({ conversation: '' }),
+      syncFullHistory: false,
+      markOnlineOnConnect: true,
+      keepAliveIntervalMs: 10000,
     });
 
     global.waSocket = sock;
