@@ -120,7 +120,7 @@ export default function Directory({ leads, cfg, user, openDrawer, hideUnknowns, 
     });
 
     return fullList;
-  }, [leads, unreads, q, sortCol, sortAsc]);
+  }, [leads, unreads, threads, q, sortCol, sortAsc]);
 
   function getBadge(status) {
     if (!status) return <span className="badge bm">-</span>;
