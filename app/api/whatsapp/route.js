@@ -86,7 +86,7 @@ export async function POST(req) {
     }
 
     try {
-        const { action, to, message } = await req.json();
+        const { action, to, message, from_phone, to_phone } = await req.json();
 
         if (!action) {
             return NextResponse.json({ error: 'Parámetros insuficientes' }, { status: 400 });
@@ -238,6 +238,33 @@ export async function POST(req) {
                 if (changed) persistUnreads(currentUnreads);
             }
             return NextResponse.json({ ok: true });
+        }
+
+        // ── MERGE CHATS ──────────────────────────────────────────────
+        if (action === 'merge_chats') {
+            if (!from_phone || !to_phone) {
+                return NextResponse.json({ error: 'Faltan parámetros' }, { status: 400 });
+            }
+            const msgs = getMessages();
+            const fromKey = cleanPhone(from_phone);
+            const toKey = cleanPhone(to_phone);
+
+            let fromMsgs = [];
+            const suffix = fromKey.slice(-10);
+            
+            // Collect messages from any thread matching the old phone's suffix
+            for (const key of Object.keys(msgs)) {
+                if (key === fromKey || key.endsWith(suffix) || suffix.endsWith(key.slice(-10))) {
+                    fromMsgs = [...fromMsgs, ...msgs[key]];
+                    delete msgs[key];
+                }
+            }
+
+            if (!msgs[toKey]) msgs[toKey] = [];
+            msgs[toKey] = [...msgs[toKey], ...fromMsgs].sort((a,b) => a.timestamp - b.timestamp);
+            
+            persistMessages(msgs);
+            return NextResponse.json({ ok: true, merged: fromMsgs.length });
         }
 
         // ── DISCONNECT ───────────────────────────────────────────────

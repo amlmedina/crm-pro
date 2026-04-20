@@ -140,6 +140,15 @@ export default function Drawer({ open, onClose, lead, leads, tab, setTab, cfg, u
            setLoading(true);
            try {
               await api('saveProfile', { perfil: targetLead, userId: user.id });
+
+              if (backupPhone) {
+                 await fetch('/api/whatsapp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'merge_chats', from_phone: backupPhone, to_phone: lead.Telefono })
+                 }).catch(() => {});
+              }
+
               await refreshLeads();
               onClose();
               Swal.fire('Vinculado', 'El número de WhatsApp ha sido enlazado a este cliente.', 'success');
