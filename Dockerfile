@@ -26,7 +26,7 @@ ENV NODE_ENV=production
 ENV PORT=3000
 
 # Create necessary directories for persistence
-RUN mkdir -p wa_session crm_data && chown node:node wa_session crm_data
+RUN mkdir -p /app/storage/wa_session /app/storage/crm_data && chown -R node:node /app/storage
 
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next ./.next

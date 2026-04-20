@@ -16,13 +16,18 @@ const dev = process.env.NODE_ENV !== 'production';
 const app = next({ dev, turbopack: dev });
 const handle = app.getRequestHandler();
 
-// ── Persistencia de mensajes ─────────────────────────────────────────────────
-const SESSION_DIR = path.join(process.cwd(), 'wa_session');
+// ── Persistencia de datos (Unificado para Railway) ───────────────────────────
+const BASE_STORAGE = fs.existsSync('/app/storage') ? '/app/storage' : process.cwd();
+
+const SESSION_DIR = path.join(BASE_STORAGE, 'wa_session');
 const MESSAGES_FILE = path.join(SESSION_DIR, 'messages.json');
 const UNREADS_FILE = path.join(SESSION_DIR, 'unreads.json');
+const TASKS_DATA_DIR = path.join(BASE_STORAGE, 'crm_data');
+const TASKS_FILE = path.join(TASKS_DATA_DIR, 'tasks.json');
 
-function ensureSessionDir() {
+function ensureDataDirs() {
   if (!fs.existsSync(SESSION_DIR)) fs.mkdirSync(SESSION_DIR, { recursive: true });
+  if (!fs.existsSync(TASKS_DATA_DIR)) fs.mkdirSync(TASKS_DATA_DIR, { recursive: true });
 }
 
 function loadMessages() {
@@ -125,7 +130,7 @@ async function startWhatsApp() {
         } else {
           // Sesión cerrada — borrar credenciales para forzar nuevo QR
           console.log('[WA] Sesión cerrada (logout). Borrando credenciales...');
-          try { fs.rmSync(SESSION_DIR, { recursive: true, force: true }); ensureSessionDir(); } catch {}
+          try { fs.rmSync(SESSION_DIR, { recursive: true, force: true }); ensureDataDirs(); } catch {}
           setTimeout(startWhatsApp, 4000);
         }
       }
@@ -190,6 +195,7 @@ async function startWhatsApp() {
       }
     });
 
+    ensureDataDirs();
     return sock;
   }
 

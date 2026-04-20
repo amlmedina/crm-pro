@@ -2,8 +2,9 @@ import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 
-// Define path to the local db file
-const dataDir = path.join(process.cwd(), 'crm_data');
+// ── Persistencia de datos (Unificado para Railway) ───────────────────────────
+const BASE_STORAGE = fs.existsSync('/app/storage') ? '/app/storage' : process.cwd();
+const dataDir = path.join(BASE_STORAGE, 'crm_data');
 const tasksFile = path.join(dataDir, 'tasks.json');
 
 // Ensure directory and file exist
