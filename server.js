@@ -47,7 +47,7 @@ global.persistMessages = persistMessages;
 global.persistUnreads  = persistUnreads;
 
 // ── Versión del servidor (actualizar para confirmar despliegues) ───────────────
-const SERVER_VERSION = 'v2026.04.20-04';
+const SERVER_VERSION = 'v2026.04.20-05';
 
 // ── Estado global ─────────────────────────────────────────────────────────────
 global.waStatus   = { connected: false, qr: null, phone: null, state: 'disconnected' };
