@@ -64,8 +64,9 @@ export default function Directory({ leads, cfg, user, openDrawer }) {
   }
 
   const filtered = useMemo(() => {
-    // 1. Identify "Unknown" numbers that have a thread but no lead
+    // 1. Identify "Unknown" numbers that have an unread thread but no lead
     const leadPhones = new Set(leads.map(l => cleanPhoneStr(l.Telefono).slice(-10)));
+    const threads = Object.keys(unreads || {});
     
     const unknownLeads = threads
       .filter(tNum => {
@@ -102,7 +103,7 @@ export default function Directory({ leads, cfg, user, openDrawer }) {
     });
 
     return fullList;
-  }, [leads, threads, q, sortCol, sortAsc]);
+  }, [leads, unreads, q, sortCol, sortAsc]);
 
   function getBadge(status) {
     if (!status) return <span className="badge bm">-</span>;
