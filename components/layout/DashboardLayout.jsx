@@ -87,6 +87,7 @@ export default function DashboardLayout({ user }) {
         <div className="logo">CRM<span>Pro</span></div>
         <div className="tabs">
           <button className={`tab ${activeTab === 'dir' ? 'on' : ''}`} onClick={() => setActiveTab('dir')}>Directorio</button>
+          <button className={`tab ${activeTab === 'unks' ? 'on' : ''}`} onClick={() => setActiveTab('unks')}>👽 Desconocidos</button>
           <button className={`tab ${activeTab === 'funnel' ? 'on' : ''}`} onClick={() => setActiveTab('funnel')}>Funnel SLA</button>
           <button className={`tab ${activeTab === 'tasks' ? 'on' : ''}`} onClick={() => setActiveTab('tasks')}>✅ Tareas</button>
           {user.rol === 'Gerente' && (
@@ -116,7 +117,11 @@ export default function DashboardLayout({ user }) {
         <>
           {/* VIEWS */}
           <div style={{ display: activeTab === 'dir' ? 'flex' : 'none', flex: 1, flexDirection: 'column', overflow: 'hidden' }}>
-            <Directory leads={leads} cfg={cfg} loading={loading} refreshLeads={initApp} user={user} openDrawer={openDrawer} />
+            <Directory leads={leads} cfg={cfg} loading={loading} refreshLeads={initApp} user={user} openDrawer={openDrawer} hideUnknowns={true} />
+          </div>
+
+          <div style={{ display: activeTab === 'unks' ? 'flex' : 'none', flex: 1, flexDirection: 'column', overflow: 'hidden' }}>
+            <Directory leads={leads} cfg={cfg} loading={loading} refreshLeads={initApp} user={user} openDrawer={openDrawer} unknownsOnly={true} />
           </div>
 
           <div style={{ display: activeTab === 'funnel' ? 'block' : 'none', flex: 1, overflowY: 'auto' }}>

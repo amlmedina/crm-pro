@@ -139,7 +139,7 @@ export default function Drawer({ open, onClose, lead, leads, tab, setTab, cfg, u
            
            setLoading(true);
            try {
-              await api('saveContact', targetLead);
+              await api('saveProfile', { perfil: targetLead, userId: user.id });
               await refreshLeads();
               onClose();
               Swal.fire('Vinculado', 'El número de WhatsApp ha sido enlazado a este cliente.', 'success');

@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 
-export default function Directory({ leads, cfg, user, openDrawer }) {
+export default function Directory({ leads, cfg, user, openDrawer, hideUnknowns, unknownsOnly }) {
   const [q, setQ] = useState('');
   const [cpOpen, setCpOpen] = useState(false);
   const [sortCol, setSortCol] = useState('ID_Contacto');
@@ -82,9 +82,15 @@ export default function Directory({ leads, cfg, user, openDrawer }) {
         isUnknown: true
       }));
 
-    // 2. Merge actual leads + unknown leads
-    let fullList = [...leads, ...unknownLeads]
-      .filter(l => l.Estado_Funnel !== 'Congelado');
+    // 2. Merge actual leads + unknown leads based on props
+    let fullList = [];
+    if (unknownsOnly) {
+       fullList = unknownLeads.filter(l => l.Estado_Funnel !== 'Congelado');
+    } else if (hideUnknowns) {
+       fullList = leads.filter(l => l.Estado_Funnel !== 'Congelado');
+    } else {
+       fullList = [...leads, ...unknownLeads].filter(l => l.Estado_Funnel !== 'Congelado');
+    }
 
     if (q.trim()) {
       const qs = q.toLowerCase();
