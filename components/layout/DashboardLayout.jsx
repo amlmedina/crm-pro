@@ -125,7 +125,7 @@ export default function DashboardLayout({ user }) {
           </div>
 
           <div style={{ display: activeTab === 'funnel' ? 'block' : 'none', flex: 1, overflowY: 'auto' }}>
-            <Funnel leads={leads} cfg={cfg} loading={loading} refreshLeads={initApp} openDrawer={openDrawer} user={user} />
+            <Funnel leads={leads} setLeads={setLeads} cfg={cfg} loading={loading} refreshLeads={initApp} openDrawer={openDrawer} user={user} />
           </div>
 
           <div style={{ display: activeTab === 'tasks' ? 'flex' : 'none', flex: 1, overflow: 'hidden' }}>

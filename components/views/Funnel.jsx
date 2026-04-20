@@ -1,12 +1,32 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { api } from '@/lib/api';
 import Swal from 'sweetalert2';
 
 export default function Funnel({ leads, cfg, user, openDrawer, setLeads }) {
   const [draggedId, setDraggedId] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Sincronización de unreads para la burbuja
+  const [unreads, setUnreads] = useState({});
+
+  useEffect(() => {
+    const fetchUnreads = async () => {
+      try {
+        const res = await fetch('/api/whatsapp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'unread' })
+        });
+        const data = await res.json();
+        if (data && !data.error) setUnreads(data);
+      } catch {}
+    };
+    fetchUnreads();
+    const interval = setInterval(fetchUnreads, 8000);
+    return () => clearInterval(interval);
+  }, []);
 
   // SLA Strikes function
   function getStrikeCount(l, stage) {
@@ -125,7 +145,14 @@ export default function Funnel({ leads, cfg, user, openDrawer, setLeads }) {
                       onClick={() => openDrawer(l)}
                       style={{ borderLeftColor: isOver ? 'var(--danger)' : 'var(--navy)' }}
                     >
-                      <div className="kname">{l.Nombre_Persona}</div>
+                      <div className="kname" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                         {l.Nombre_Persona}
+                         {unreads[String(l.Telefono || '').replace(/[\s\-\+\(\)]/g, '').slice(-10)] > 0 && (
+                            <span style={{ background: '#ef4444', color: '#fff', borderRadius: '10px', padding: '1px 6px', fontSize: '0.65rem', fontWeight: 'bold' }}>
+                               {unreads[String(l.Telefono || '').replace(/[\s\-\+\(\)]/g, '').slice(-10)]}
+                            </span>
+                         )}
+                      </div>
                       <div className="ksub" style={{marginTop:'4px'}}>{l.Nombre_Empresa || 'Sin empresa'}</div>
                       <div className="ksub">{(l.Presupuesto && !isNaN(Number(l.Presupuesto))) ? `$${Number(l.Presupuesto).toLocaleString()}` : ''}</div>
                       {isOver && <div style={{fontSize:'10px', color:'var(--danger)', marginTop:'6px'}}>⚠️ {strikes}/{f.limit} Interacciones</div>}
