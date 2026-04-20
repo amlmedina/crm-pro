@@ -46,6 +46,9 @@ function persistUnreads() {
 global.persistMessages = persistMessages;
 global.persistUnreads  = persistUnreads;
 
+// ── Versión del servidor (actualizar para confirmar despliegues) ───────────────
+const SERVER_VERSION = 'v2026.04.20-04';
+
 // ── Estado global ─────────────────────────────────────────────────────────────
 global.waStatus   = { connected: false, qr: null, phone: null, state: 'disconnected' };
 global.waSocket   = null;
@@ -199,7 +202,7 @@ async function startWhatsApp() {
 
 // ── Arranque principal ────────────────────────────────────────────────────────
 async function main() {
-  console.log('--- CRM Pro Boot ---');
+  console.log(`--- CRM Pro Boot ${SERVER_VERSION} ---`);
   ensureDataDirs();
   console.log(`[System] BASE_STORAGE: ${BASE_STORAGE}`);
 
