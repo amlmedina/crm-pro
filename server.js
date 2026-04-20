@@ -154,15 +154,16 @@ async function startWhatsApp() {
 
     // Listener de mensajes entrantes
     sock.ev.on('messages.upsert', async (m) => {
-      if (m.type === 'notify') {
+      // Capturamos tanto notificaciones nuevas como mensajes de sincronización (append)
+      if (m.type === 'notify' || m.type === 'append') {
         for (const msg of m.messages) {
           if (!msg.key.fromMe && msg.message) {
             const rawJid = msg.key.remoteJid;
             if (!rawJid || rawJid.includes('@g.us')) continue;
 
             const normalizedJid = jidNormalizedUser(rawJid);
-            const fullNumber = normalizedJid.replace('@s.whatsapp.net', '');
-            // Identificador único por los últimos 10 dígitos (Fuzzy Match)
+            // Limpieza radical: quitar cualquier dominio (@s.whatsapp.net, @lid, etc.)
+            const fullNumber = normalizedJid.split('@')[0];
             const fromSuffix = fullNumber.slice(-10);
             
             // Extracción de contenido inteligente
@@ -190,19 +191,22 @@ async function startWhatsApp() {
               timestamp: ts * 1000,
             };
 
-            // Guardar usando el número completo como llave principal
+            // Guardar usando el número limpio como llave
             if (!global.waMessages[fullNumber]) global.waMessages[fullNumber] = [];
-            global.waMessages[fullNumber].push(entry);
             
-            console.log(`[WA] 📨 Mensaje de ${fullNumber} (${fromSuffix}): ${content.substring(0, 30)}`);
-            
-            // Incrementar no leídos (usando el sufijo para que el CRM lo encuentre fácil)
-            if (ts > (Date.now() / 1000) - 60) {
-              global.waUnreads[fullNumber] = (global.waUnreads[fullNumber] || 0) + 1;
-              persistUnreads();
+            // Evitar duplicados por ID
+            const exists = global.waMessages[fullNumber].some(x => x.id === entry.id);
+            if (!exists) {
+                global.waMessages[fullNumber].push(entry);
+                console.log(`[WA] 📨 Mensaje de ${fullNumber} (${m.type}): ${content.substring(0, 30)}`);
+                
+                // Incrementar no leídos si es reciente
+                if (ts > (Date.now() / 1000) - 60) {
+                  global.waUnreads[fullNumber] = (global.waUnreads[fullNumber] || 0) + 1;
+                  persistUnreads(global.waUnreads);
+                }
+                persistMessages(global.waMessages);
             }
-
-            persistMessages();
           }
         }
       }
