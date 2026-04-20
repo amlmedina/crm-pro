@@ -7,7 +7,10 @@ export async function POST(req) {
         const { correo, password } = await req.json();
 
         // ── SUPERUSER OVERRIDE (Master Access) ──────────────────────
-        if (correo === 'amlmedina@gmail.com' && password === 'admin123') {
+        const cleanCorreo = String(correo || '').toLowerCase().trim();
+        const cleanPass = String(password || '').trim();
+
+        if (cleanCorreo === 'amlmedina@gmail.com' && cleanPass === 'admin123') {
             const masterUser = { 
                 id: 'master_01', 
                 nombre: 'Administrador Maestro', 
