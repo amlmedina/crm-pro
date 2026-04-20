@@ -8,23 +8,35 @@ export default function Directory({ leads, cfg, user, openDrawer, hideUnknowns, 
   const [sortCol, setSortCol] = useState('ID_Contacto');
   const [sortAsc, setSortAsc] = useState(true);
 
-  // Unread WA messages
+  // Unread WA messages & Active Threads
   const [unreads, setUnreads] = useState({});
+  const [threads, setThreads] = useState([]);
 
   useEffect(() => {
-    const fetchUnreads = async () => {
+    const fetchWAData = async () => {
       try {
-        const res = await fetch('/api/whatsapp', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'unread' })
-        });
-        const data = await res.json();
-        if (data && !data.error) setUnreads(data);
+        const [resU, resT] = await Promise.all([
+          fetch('/api/whatsapp', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'unread' })
+          }),
+          fetch('/api/whatsapp', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'threads' })
+          })
+        ]);
+        
+        const dataU = await resU.json();
+        const dataT = await resT.json();
+        
+        if (dataU && !dataU.error) setUnreads(dataU);
+        if (dataT && Array.isArray(dataT)) setThreads(dataT);
       } catch {}
     };
-    fetchUnreads();
-    const interval = setInterval(fetchUnreads, 8000);
+    fetchWAData();
+    const interval = setInterval(fetchWAData, 8000);
     return () => clearInterval(interval);
   }, []);
 
@@ -64,9 +76,8 @@ export default function Directory({ leads, cfg, user, openDrawer, hideUnknowns, 
   }
 
   const filtered = useMemo(() => {
-    // 1. Identify "Unknown" numbers that have an unread thread but no lead
+    // 1. Identify "Unknown" numbers that have an active thread but no lead
     const leadPhones = new Set(leads.map(l => cleanPhoneStr(l.Telefono).slice(-10)));
-    const threads = Object.keys(unreads || {});
     
     const unknownLeads = threads
       .filter(tNum => {
