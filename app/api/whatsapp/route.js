@@ -135,6 +135,13 @@ export async function POST(req) {
             }
             return NextResponse.json(reduced);
         }
+
+        // ── THREADS (Active chat numbers) ───────────────────────────
+        if (action === 'threads') {
+            const msgs = getMessages();
+            // Retornar lista de números únicos que han tenido conversación
+            return NextResponse.json(Object.keys(msgs));
+        }
         if (action === 'read_all') {
             const phone = cleanPhone(to || '');
             if (phone && global.waUnreads) {

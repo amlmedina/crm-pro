@@ -28,6 +28,9 @@ export default function Directory({ leads, cfg, user, openDrawer }) {
     return () => clearInterval(interval);
   }, []);
 
+  // Helper for cleaning phone (same as API)
+  const cleanPhoneStr = (p) => String(p || '').replace(/[\s\-\+\(\)]/g, '');
+
   // Default cols + custom cols
   const baseCols = [
     { key: 'ID_Contacto', label: 'ID' },
@@ -61,15 +64,35 @@ export default function Directory({ leads, cfg, user, openDrawer }) {
   }
 
   const filtered = useMemo(() => {
-    let list = leads.filter(l => l.Estado_Funnel !== 'Congelado');
+    // 1. Identify "Unknown" numbers that have a thread but no lead
+    const leadPhones = new Set(leads.map(l => cleanPhoneStr(l.Telefono).slice(-10)));
+    
+    const unknownLeads = threads
+      .filter(tNum => {
+        const suffix = tNum.slice(-10);
+        return !leadPhones.has(suffix);
+      })
+      .map(tNum => ({
+        ID_Contacto: `unk_${tNum}`,
+        Nombre_Persona: `Desconocido (${tNum})`,
+        Nombre_Empresa: 'No registrado',
+        Telefono: tNum,
+        Estado_Funnel: 'Desconocido',
+        isUnknown: true
+      }));
+
+    // 2. Merge actual leads + unknown leads
+    let fullList = [...leads, ...unknownLeads]
+      .filter(l => l.Estado_Funnel !== 'Congelado');
+
     if (q.trim()) {
       const qs = q.toLowerCase();
-      list = list.filter(l => 
+      fullList = fullList.filter(l => 
         Object.values(l).some(v => v && String(v).toLowerCase().includes(qs))
       );
     }
     
-    list.sort((a, b) => {
+    fullList.sort((a, b) => {
       let va = a[sortCol] || '';
       let vb = b[sortCol] || '';
       if (!isNaN(va) && !isNaN(vb)) { va = Number(va); vb = Number(vb); }
@@ -78,8 +101,8 @@ export default function Directory({ leads, cfg, user, openDrawer }) {
       return 0;
     });
 
-    return list;
-  }, [leads, q, sortCol, sortAsc]);
+    return fullList;
+  }, [leads, threads, q, sortCol, sortAsc]);
 
   function getBadge(status) {
     if (!status) return <span className="badge bm">-</span>;
