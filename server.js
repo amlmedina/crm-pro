@@ -207,8 +207,8 @@ app.prepare().then(() => {
   createServer((req, res) => {
     const parsedUrl = parse(req.url, true);
     handle(req, res, parsedUrl);
-  }).listen(port, () => {
-    console.log(`\n🚀 CRM Pro corriendo en http://localhost:${port}`);
+  }).listen(port, '0.0.0.0', () => {
+    console.log(`\n🚀 CRM Pro corriendo en puerto ${port}`);
     console.log(`📱 WhatsApp: iniciando en background...`);
     console.log(`   → Abre el panel Admin para escanear el QR\n`);
   });
