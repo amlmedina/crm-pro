@@ -14,13 +14,13 @@ const ibmPlexMono = IBM_Plex_Mono({
 
 export async function generateMetadata() {
   return {
-    title: process.env.NEXT_PUBLIC_BRAND_NAME || "CRM Pro — Palmer",
+    title: process.env.NEXT_PUBLIC_BRAND_NAME || "Galaxy Bikes CRM",
     description: "Sistema interno de gestión comercial (ISO 27001)",
   };
 }
 
 export default function RootLayout({ children }) {
-  const brandColor = process.env.NEXT_PUBLIC_BRAND_COLOR || "#0176D3"; // Default Navy
+  const brandColor = process.env.NEXT_PUBLIC_BRAND_COLOR || "#00f3ff"; // Neon Cyan
 
   return (
     <html lang="es" className={`${syne.variable} ${ibmPlexMono.variable}`}>

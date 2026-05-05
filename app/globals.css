@@ -1,18 +1,18 @@
         :root {
-            --bg: #F4F6F9;
-            --s1: #FFFFFF;
-            --s2: #F3F3F3;
-            --brd: #DDDBDA;
-            --navy: #0176D3;
-            --navy-light: #F0F8FC;
-            --navy-hover: #014486;
-            --green: #04844B;
-            --red: #C23934;
-            --yel: #E58A1F;
-            --blue: #00A1E0;
-            --text: #181818;
-            --muted: #444444;
-            --danger: #C23934;
+            --bg: #0a0b10;
+            --s1: #13151f;
+            --s2: #1c1e2b;
+            --brd: #2a2d3e;
+            --navy: #00f3ff;
+            --navy-light: rgba(0, 243, 255, 0.15);
+            --navy-hover: #00c3cc;
+            --green: #10b981;
+            --red: #ef4444;
+            --yel: #f59e0b;
+            --blue: #3b82f6;
+            --text: #f1f5f9;
+            --muted: #94a3b8;
+            --danger: #ef4444;
         }
 
         *,
@@ -85,7 +85,7 @@
             align-items: center;
             justify-content: center;
             background: var(--bg);
-            background-image: radial-gradient(ellipse at 15% 50%, rgba(26, 54, 93, .04) 0%, transparent 55%), radial-gradient(ellipse at 85% 20%, rgba(59, 130, 246, .04) 0%, transparent 50%)
+            background-image: radial-gradient(ellipse at 15% 50%, rgba(0, 243, 255, .1) 0%, transparent 55%), radial-gradient(ellipse at 85% 20%, rgba(139, 92, 246, .1) 0%, transparent 50%);
         }
 
         .lbox {
@@ -166,8 +166,8 @@
         .card {
             background: var(--s1);
             border: 1px solid var(--brd);
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
         }
 
         .inp {
@@ -206,8 +206,8 @@
             justify-content: center;
             gap: 6px;
             padding: 8px 16px;
-            border-radius: 4px;
-            border: none;
+            border-radius: 8px;
+            border: 1px solid transparent;
             font-family: var(--font-syne), sans-serif;
             font-weight: 700;
             font-size: .83rem;
@@ -223,13 +223,14 @@
 
         .btng {
             background: var(--navy);
-            color: #ffffff;
-            box-shadow: 0 4px 10px rgba(26, 54, 93, .15)
+            color: #000;
+            box-shadow: 0 0 10px var(--navy-light)
         }
 
         .btng:not(:disabled):hover {
             background: var(--navy-hover);
-            transform: translateY(-1px)
+            transform: translateY(-1px);
+            box-shadow: 0 0 15px var(--navy-hover)
         }
 
         .btny {
@@ -242,28 +243,30 @@
         }
 
         .btngh {
-            background: var(--s1);
+            background: transparent;
             color: var(--navy);
-            border: 1px solid var(--brd)
+            border: 1px solid var(--navy)
         }
 
         .btngh:hover {
-            border-color: var(--navy);
-            background: var(--navy-light)
+            border-color: var(--navy-hover);
+            background: var(--navy-light);
+            box-shadow: 0 0 8px var(--navy-light)
         }
 
         .btndel {
-            background: rgba(239, 68, 68, .1);
+            background: rgba(239, 68, 68, .05);
             color: var(--danger);
-            border: 1px solid rgba(239, 68, 68, .2)
+            border: 1px solid rgba(239, 68, 68, .3)
         }
 
         .btndel:hover {
-            background: rgba(239, 68, 68, .15)
+            background: rgba(239, 68, 68, .15);
+            box-shadow: 0 0 8px rgba(239, 68, 68, .2)
         }
 
         .btnda {
-            background: var(--s2);
+            background: var(--s1);
             color: var(--muted);
             border: 1px dashed var(--brd);
             font-size: .78rem

@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import Swal from 'sweetalert2';
 
-export default function Campaigns({ leads, user, openDrawer, initialSelection = [], onClearSelection }) {
+export default function Campaigns({ leads, cfg, user, openDrawer, initialSelection = [], onClearSelection }) {
     const [campaigns, setCampaigns] = useState([]);
     const [loading, setLoading] = useState(true);
     const [view, setView] = useState(initialSelection.length > 0 ? 'create' : 'list'); // 'list', 'create', 'details'
@@ -16,6 +16,32 @@ export default function Campaigns({ leads, user, openDrawer, initialSelection = 
     const [selectedContacts, setSelectedContacts] = useState(initialSelection);
     const [scheduledAt, setScheduledAt] = useState('');
     const [q, setQ] = useState('');
+
+    // Advanced Filters
+    const [filtersOpen, setFiltersOpen] = useState(false);
+    const [activeFilters, setActiveFilters] = useState([]);
+    const [newFilterKey, setNewFilterKey] = useState('');
+    const [newFilterVal, setNewFilterVal] = useState('');
+
+    const allCols = useMemo(() => {
+        const base = [
+            { key: 'Estado_Funnel', label: 'Etapa Funnel' },
+            { key: 'Nombre_Persona', label: 'Nombre' },
+            { key: 'Nombre_Empresa', label: 'Empresa' },
+            { key: 'Puesto', label: 'Puesto' }
+        ];
+        if (cfg?.camposPersonalizados) {
+            cfg.camposPersonalizados.forEach(c => base.push({ key: c.key, label: c.label }));
+        }
+        return base;
+    }, [cfg]);
+
+    function addFilter() {
+        if (!newFilterKey || !newFilterVal.trim()) return;
+        setActiveFilters([...activeFilters, { key: newFilterKey, value: newFilterVal.trim() }]);
+        setNewFilterKey('');
+        setNewFilterVal('');
+    }
 
     useEffect(() => {
         fetchCampaigns();
@@ -44,16 +70,30 @@ export default function Campaigns({ leads, user, openDrawer, initialSelection = 
 
     const filteredLeads = useMemo(() => {
         if (!Array.isArray(leads)) return [];
-        if (!q.trim()) return leads.slice(0, 100);
-        const qs = q.toLowerCase();
-        return leads.filter(l => {
-            if (!l) return false;
-            const name = String(l.Nombre_Persona || '').toLowerCase();
-            const phone = String(l.Telefono || '');
-            const company = String(l.Nombre_Empresa || '').toLowerCase();
-            return name.includes(qs) || phone.includes(qs) || company.includes(qs);
-        });
-    }, [leads, q]);
+        let list = leads;
+
+        if (q.trim()) {
+            const qs = q.toLowerCase();
+            list = list.filter(l => {
+                if (!l) return false;
+                const name = String(l.Nombre_Persona || '').toLowerCase();
+                const phone = String(l.Telefono || '');
+                const company = String(l.Nombre_Empresa || '').toLowerCase();
+                return name.includes(qs) || phone.includes(qs) || company.includes(qs);
+            });
+        }
+
+        if (activeFilters.length > 0) {
+            list = list.filter(l => {
+                return activeFilters.every(f => {
+                    const lVal = String(l[f.key] || '').toLowerCase();
+                    return lVal.includes(String(f.value).toLowerCase());
+                });
+            });
+        }
+
+        return list.slice(0, 100);
+    }, [leads, q, activeFilters]);
 
     function toggleContact(l) {
         if (!l) return;
@@ -333,8 +373,41 @@ export default function Campaigns({ leads, user, openDrawer, initialSelection = 
 
                     {/* Right: Contact Selector */}
                     <div className="card" style={{ padding: '15px', display: 'flex', flexDirection: 'column', gap: '10px', overflow: 'hidden' }}>
-                        <h3 style={{ margin: 0 }}>Contactos ({selectedContacts.length}/50)</h3>
-                        <input type="text" className="inp" placeholder="Filtrar contactos..." value={q} onChange={e => setQ(e.target.value)} />
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h3 style={{ margin: 0 }}>Contactos ({selectedContacts.length}/50)</h3>
+                            <button className="btn btngh" style={{ fontSize: '0.75rem', padding: '4px 8px' }} onClick={() => setFiltersOpen(!filtersOpen)}>
+                                Filtros {filtersOpen ? '▲' : '▼'}
+                            </button>
+                        </div>
+                        
+                        <input type="text" className="inp" placeholder="Filtrar por nombre, empresa, teléfono..." value={q} onChange={e => setQ(e.target.value)} />
+                        
+                        {filtersOpen && (
+                            <div style={{ padding: '10px', background: 'var(--s2)', borderRadius: '6px', border: '1px solid var(--brd)' }}>
+                                {activeFilters.length > 0 && (
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '10px' }}>
+                                        {activeFilters.map((f, i) => (
+                                            <span key={i} className="badge bb" style={{ fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                                {allCols.find(c => c.key === f.key)?.label || f.key}: {f.value}
+                                                <button onClick={() => setActiveFilters(activeFilters.filter((_, idx) => idx !== i))} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0 }}>✕</button>
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
+                                <div style={{ display: 'flex', gap: '5px', flexDirection: 'column' }}>
+                                    <select className="inp" style={{ fontSize: '0.8rem', padding: '4px 8px' }} value={newFilterKey} onChange={e => setNewFilterKey(e.target.value)}>
+                                        <option value="">Añadir filtro por...</option>
+                                        {allCols.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
+                                    </select>
+                                    {newFilterKey && (
+                                        <div style={{ display: 'flex', gap: '5px' }}>
+                                            <input type="text" className="inp" style={{ fontSize: '0.8rem', padding: '4px 8px' }} placeholder="Valor..." value={newFilterVal} onChange={e => setNewFilterVal(e.target.value)} onKeyDown={e => e.key === 'Enter' && addFilter()} />
+                                            <button className="btn btng" style={{ fontSize: '0.8rem', padding: '4px 10px' }} onClick={addFilter}>Add</button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
                         
                         <div style={{ flex: 1, overflowY: 'auto', border: '1px solid var(--brd)', borderRadius: '4px' }}>
                             {filteredLeads.map(l => {

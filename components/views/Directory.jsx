@@ -11,12 +11,6 @@ export default function Directory({
   const [sortCol, setSortCol] = useState('ID_Contacto');
   const [sortAsc, setSortAsc] = useState(true);
 
-  // Filtros avanzados
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  const [activeFilters, setActiveFilters] = useState([]); // [{key, value}]
-  const [newFilterKey, setNewFilterKey] = useState('');
-  const [newFilterVal, setNewFilterVal] = useState('');
-
   // Helper for cleaning phone (same as API)
   const cleanPhoneStr = (p) => String(p || '').replace(/[\s\-\+\(\)]/g, '');
 
@@ -50,13 +44,6 @@ export default function Directory({
   function doSort(key) {
     if (sortCol === key) setSortAsc(!sortAsc);
     else { setSortCol(key); setSortAsc(true); }
-  }
-
-  function addFilter() {
-    if (!newFilterKey || !newFilterVal.trim()) return;
-    setActiveFilters([...activeFilters, { key: newFilterKey, value: newFilterVal.trim() }]);
-    setNewFilterKey('');
-    setNewFilterVal('');
   }
 
   const filtered = useMemo(() => {
@@ -97,15 +84,6 @@ export default function Directory({
       );
     }
     
-    if (activeFilters.length > 0) {
-      fullList = fullList.filter(l => {
-        return activeFilters.every(f => {
-          const lVal = String(l[f.key] || '').toLowerCase();
-          return lVal.includes(String(f.value).toLowerCase());
-        });
-      });
-    }
-
     fullList.sort((a, b) => {
       let va = a[sortCol] || '';
       let vb = b[sortCol] || '';
@@ -116,7 +94,7 @@ export default function Directory({
     });
 
     return fullList;
-  }, [leads, unreads, threads, q, sortCol, sortAsc, activeFilters]);
+  }, [leads, unreads, threads, q, sortCol, sortAsc]);
 
   function getBadge(status) {
     if (!status) return <span className="badge bm">-</span>;
@@ -153,7 +131,6 @@ export default function Directory({
 
       <div id="toolbar">
         <input type="text" id="q" placeholder="🔍 Buscar por nombre, empresa..." value={q} onChange={e => setQ(e.target.value)} />
-        <button className="btn btngh" onClick={() => setFiltersOpen(!filtersOpen)}>Filtros Avanzados {filtersOpen ? '▲' : '▼'}</button>
         <div id="cpwrap">
           <button className="btn btngh" onClick={() => setCpOpen(!cpOpen)}>Columnas ▼</button>
           {cpOpen && (
@@ -169,39 +146,6 @@ export default function Directory({
         </div>
         <button className="btn btng" onClick={() => openDrawer()}>+ Nuevo Prospecto</button>
       </div>
-
-      {filtersOpen && (
-        <div className="card" style={{ padding: '15px', margin: '0 20px 15px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
-           <p style={{ margin: 0, fontWeight: 600, fontSize: '0.9rem' }}>Filtros Activos</p>
-           
-           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-             {activeFilters.length === 0 && <span style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>No hay filtros aplicados.</span>}
-             {activeFilters.map((f, i) => {
-               const col = allCols.find(c => c.key === f.key);
-               return (
-                 <div key={i} className="badge bb" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px' }}>
-                   <strong>{col?.label || f.key}:</strong> {f.value}
-                   <button onClick={() => setActiveFilters(activeFilters.filter((_, idx) => idx !== i))} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', padding: 0, marginLeft: '4px', fontSize: '1rem' }}>✕</button>
-                 </div>
-               )
-             })}
-           </div>
-           
-           <div style={{ display: 'flex', gap: '10px', alignItems: 'center', borderTop: '1px solid var(--brd)', paddingTop: '15px' }}>
-             <select className="inp" value={newFilterKey} onChange={e => setNewFilterKey(e.target.value)} style={{ width: '200px' }}>
-               <option value="">+ Añadir filtro por...</option>
-               {allCols.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
-             </select>
-             
-             {newFilterKey && (
-               <>
-                 <input type="text" className="inp" placeholder="Escribe el valor a buscar..." value={newFilterVal} onChange={e => setNewFilterVal(e.target.value)} onKeyDown={e => { if(e.key === 'Enter') addFilter() }} style={{ flex: 1 }} />
-                 <button className="btn btng" onClick={addFilter}>Agregar Filtro</button>
-               </>
-             )}
-           </div>
-        </div>
-      )}
 
       <div id="twrap">
         <table id="tbl">
