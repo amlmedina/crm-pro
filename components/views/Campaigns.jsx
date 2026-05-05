@@ -42,17 +42,21 @@ export default function Campaigns({ leads, user, initialSelection = [], onClearS
     }, [campaigns]);
 
     const filteredLeads = useMemo(() => {
+        if (!Array.isArray(leads)) return [];
         if (!q.trim()) return leads.slice(0, 100);
         const qs = q.toLowerCase();
-        return leads.filter(l => 
-            (l.Nombre_Persona || '').toLowerCase().includes(qs) || 
-            (l.Telefono || '').includes(qs) ||
-            (l.Nombre_Empresa || '').toLowerCase().includes(qs)
-        );
+        return leads.filter(l => {
+            if (!l) return false;
+            const name = String(l.Nombre_Persona || '').toLowerCase();
+            const phone = String(l.Telefono || '');
+            const company = String(l.Nombre_Empresa || '').toLowerCase();
+            return name.includes(qs) || phone.includes(qs) || company.includes(qs);
+        });
     }, [leads, q]);
 
     function toggleContact(l) {
-        const phone = l.Telefono || l.id;
+        if (!l) return;
+        const phone = l.Telefono || l.ID_Contacto;
         const exists = selectedContacts.find(c => c.phone === phone);
         if (exists) {
             setSelectedContacts(selectedContacts.filter(c => c.phone !== phone));
@@ -63,8 +67,8 @@ export default function Campaigns({ leads, user, initialSelection = [], onClearS
             }
             setSelectedContacts([...selectedContacts, { 
                 phone, 
-                nombre: l.Nombre_Persona, 
-                empresa: l.Nombre_Empresa 
+                nombre: l.Nombre_Persona || 'Sin Nombre', 
+                empresa: l.Nombre_Empresa || 'Sin Empresa'
             }]);
         }
     }
@@ -245,11 +249,11 @@ export default function Campaigns({ leads, user, initialSelection = [], onClearS
                         
                         <div style={{ flex: 1, overflowY: 'auto', border: '1px solid var(--brd)', borderRadius: '4px' }}>
                             {filteredLeads.map(l => {
-                                const phone = l.Telefono || l.id;
+                                const phone = l.Telefono || l.ID_Contacto;
                                 const isSelected = selectedContacts.some(c => c.phone === phone);
                                 return (
                                     <div 
-                                        key={l.ID_Contacto || l.id} 
+                                        key={l.ID_Contacto} 
                                         onClick={() => toggleContact(l)}
                                         style={{ 
                                             padding: '8px 12px', 
