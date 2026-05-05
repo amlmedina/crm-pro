@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import Swal from 'sweetalert2';
 
-export default function Campaigns({ leads, user, initialSelection = [], onClearSelection }) {
+export default function Campaigns({ leads, user, openDrawer, initialSelection = [], onClearSelection }) {
     const [campaigns, setCampaigns] = useState([]);
     const [loading, setLoading] = useState(true);
     const [view, setView] = useState(initialSelection.length > 0 ? 'create' : 'list'); // 'list', 'create', 'details'
