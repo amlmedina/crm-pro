@@ -70,7 +70,11 @@ function persistUnreads(data) {
 
 function cleanPhone(raw = '') {
     // Quitar espacios, guiones, +, paréntesis
-    return String(raw || '').replace(/[\s\-\+\(\)]/g, '');
+    let cleaned = String(raw || '').replace(/[\s\-\+\(\)]/g, '');
+    if (cleaned.length === 10 && !cleaned.includes('@lid')) {
+        cleaned = '521' + cleaned;
+    }
+    return cleaned;
 }
 
 function toJid(phone) {

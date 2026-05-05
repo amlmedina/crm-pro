@@ -238,7 +238,10 @@ async function startWhatsApp() {
           }
 
           try {
-            const phone = String(contact.phone || '').replace(/[\s\-\+\(\)]/g, '');
+            let phone = String(contact.phone || '').replace(/[\s\-\+\(\)]/g, '');
+            if (phone.length === 10 && !phone.includes('@lid')) {
+                phone = '521' + phone;
+            }
             const jid = phone.includes('@lid') ? phone : `${phone}@s.whatsapp.net`;
             
             // Personalización básica
