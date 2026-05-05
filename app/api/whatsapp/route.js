@@ -151,29 +151,40 @@ export async function POST(req) {
 
         // ── HISTORY ─────────────────────────────────────────────────
         if (action === 'history') {
-            const phone = cleanPhone(to || '');
-            if (!phone) {
+            const rawTo = to || '';
+            const identifiers = String(rawTo).split(',').map(id => cleanPhone(id.trim())).filter(Boolean);
+            
+            if (identifiers.length === 0) {
                 return NextResponse.json([], { status: 200 });
             }
+
             const msgs = getMessages();
             let conversation = [];
-            // Si es un lid, buscamos exactamente la llave o el sufijo sin el @lid
-            let suffix = phone.slice(-10);
-            if (phone.includes('@lid')) {
-                suffix = phone; 
-            }
+            const seenMsgIds = new Set();
 
-            console.log(`[/api/whatsapp] Buscando historial para: ${phone} (suffix: ${suffix})`);
+            for (const id of identifiers) {
+                let suffix = id.slice(-10);
+                if (id.includes('@lid')) {
+                    suffix = id; 
+                }
 
-            for (const key of Object.keys(msgs)) {
-                // Si la llave de la base de datos termina en nuestro sufijo, es un match.
-                // Ej: key '52155...' termina en '55...'
-                if (key.endsWith(suffix) || suffix.endsWith(key.slice(-10))) {
-                    conversation = [...conversation, ...msgs[key]];
+                console.log(`[/api/whatsapp] Buscando historial para id: ${id} (suffix: ${suffix})`);
+
+                for (const key of Object.keys(msgs)) {
+                    if (key === id || key.endsWith(suffix) || suffix.endsWith(key.slice(-10))) {
+                        // De-duplicate messages by ID
+                        for (const msg of msgs[key]) {
+                            const msgUid = msg.id || `${msg.timestamp}_${msg.fromMe}_${msg.text?.substring(0,20)}`;
+                            if (!seenMsgIds.has(msgUid)) {
+                                seenMsgIds.add(msgUid);
+                                conversation.push(msg);
+                            }
+                        }
+                    }
                 }
             }
 
-            const sorted = conversation.sort((a, b) => a.timestamp - b.timestamp);
+            const sorted = conversation.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
             return NextResponse.json(sorted);
         }
 
@@ -224,15 +235,20 @@ export async function POST(req) {
             return NextResponse.json(Object.values(threadData));
         }
         if (action === 'read_all') {
-            const phone = cleanPhone(to || '');
-            if (phone) {
+            const rawTo = to || '';
+            const identifiers = String(rawTo).split(',').map(id => cleanPhone(id.trim())).filter(Boolean);
+            
+            if (identifiers.length > 0) {
                 const currentUnreads = getUnreads();
-                const suffix = phone.slice(-10);
                 let changed = false;
-                for (const key of Object.keys(currentUnreads)) {
-                    if (key.endsWith(suffix)) {
-                        currentUnreads[key] = 0;
-                        changed = true;
+                
+                for (const id of identifiers) {
+                    const suffix = id.slice(-10);
+                    for (const key of Object.keys(currentUnreads)) {
+                        if (key.endsWith(suffix) || (id.includes('@lid') && key === id)) {
+                            currentUnreads[key] = 0;
+                            changed = true;
+                        }
                     }
                 }
                 if (changed) persistUnreads(currentUnreads);

@@ -20,15 +20,16 @@ export default function Drawer({ open, onClose, lead, leads, tab, setTab, cfg, u
   const [waError, setWaError]         = useState('');
   const waChatRef = useRef(null);
 
-  async function loadWaHistory(phone) {
-    if (!phone) return;
+  async function loadWaHistory(phone, lid) {
+    if (!phone && !lid) return;
     setWaLoadingHist(true);
     setWaError('');
     try {
+      const identifiers = [phone, lid].filter(Boolean).join(',');
       const res = await fetch('/api/whatsapp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'history', to: phone })
+        body: JSON.stringify({ action: 'history', to: identifiers })
       });
       const data = await res.json();
       if (!res.ok) {
@@ -46,14 +47,17 @@ export default function Drawer({ open, onClose, lead, leads, tab, setTab, cfg, u
 
   async function sendWaMessage() {
     if (!waMsg.trim()) return;
-    if (!lead?.Telefono) return;
+    // Prefer LID if available, otherwise use Telefono
+    const target = lead?.LID || lead?.Telefono;
+    if (!target) return;
+    
     setWaSending(true);
     setWaError('');
     try {
       const res = await fetch('/api/whatsapp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'send', to: lead.Telefono, message: waMsg.trim() })
+        body: JSON.stringify({ action: 'send', to: target, message: waMsg.trim() })
       });
       const data = await res.json();
       if (!res.ok) {
@@ -62,14 +66,14 @@ export default function Drawer({ open, onClose, lead, leads, tab, setTab, cfg, u
         // Optimistic update
         const newMsg = {
           id: Date.now(),
-          to: lead.Telefono,
+          to: target,
           message: waMsg.trim(),
           createdAt: new Date().toISOString(),
-          status: 'sent'
+          status: 'sent',
+          fromMe: true
         };
         setWaMessages(prev => [...prev, newMsg]);
         setWaMsg('');
-        // No auto-log, WA messages stay only in WA tab
       }
     } catch {
       setWaError('Error de conexión con MiBot');
@@ -86,26 +90,28 @@ export default function Drawer({ open, onClose, lead, leads, tab, setTab, cfg, u
 
   // Cargar historial WA cuando se cambia al tab whatsapp
   useEffect(() => {
-    if (tab === 'wa' && lead?.Telefono) {
-      loadWaHistory(lead.Telefono);
+    if (tab === 'wa' && (lead?.Telefono || lead?.LID)) {
+      loadWaHistory(lead.Telefono, lead.LID);
       // Marcar como leídos
+      const identifiers = [lead.Telefono, lead.LID].filter(Boolean).join(',');
       fetch('/api/whatsapp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'read_all', to: lead.Telefono })
+        body: JSON.stringify({ action: 'read_all', to: identifiers })
       }).catch(() => {});
     }
   }, [tab, lead]);
 
   // Auto-polling cada 8s cuando el tab WhatsApp está activo
   useEffect(() => {
-    if (tab !== 'wa' || !lead?.Telefono) return;
+    if (tab !== 'wa' || (!lead?.Telefono && !lead?.LID)) return;
     const interval = setInterval(() => {
-      loadWaHistory(lead.Telefono);
+      loadWaHistory(lead.Telefono, lead.LID);
+      const identifiers = [lead.Telefono, lead.LID].filter(Boolean).join(',');
       fetch('/api/whatsapp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'read_all', to: lead.Telefono })
+        body: JSON.stringify({ action: 'read_all', to: identifiers })
       }).catch(() => {});
     }, 8000);
     return () => clearInterval(interval);
@@ -133,25 +139,33 @@ export default function Drawer({ open, onClose, lead, leads, tab, setTab, cfg, u
      if (selectedId) {
         const targetLead = leads.find(l => String(l.ID_Contacto) === String(selectedId));
         if (targetLead) {
-           const backupPhone = targetLead.Telefono;
-           targetLead.Telefono = lead.Telefono; 
-           targetLead.Notas = (targetLead.Notas || '') + `\n[Sistema] Contacto fusionado con LID: ${lead.Telefono} (Tel antigo: ${backupPhone || 'N/A'})`;
+           console.log("[DEBUG-MERGE] Target Lead Antes:", JSON.stringify(targetLead));
+           const backupLid = targetLead.LID;
+           
+           // State-safe update
+           const updatedLead = { ...targetLead, LID: lead.Telefono };
+           updatedLead.Notas = (updatedLead.Notas || '') + `\n[Sistema] Contacto vinculado con LID: ${lead.Telefono}${backupLid ? ` (LID anterior: ${backupLid})` : ''}`;
+           
+           console.log("[DEBUG-MERGE] Proyectado para Guardar:", JSON.stringify(updatedLead));
            
            setLoading(true);
            try {
-              await api('saveProfile', { perfil: targetLead, userId: user.id });
+              const res = await api('saveProfile', { perfil: updatedLead, userId: user.id });
+              console.log("[DEBUG-MERGE] Respuesta de API:", JSON.stringify(res));
 
-              if (backupPhone) {
+              // No need to merge chats physically if we "mix" them in the UI,
+              // but we keep the redundant merge_chats call just in case or for legacy data.
+              if (backupLid) {
                  await fetch('/api/whatsapp', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'merge_chats', from_phone: backupPhone, to_phone: lead.Telefono })
+                    body: JSON.stringify({ action: 'merge_chats', from_phone: backupLid, to_phone: lead.Telefono })
                  }).catch(() => {});
               }
 
               await refreshLeads();
               onClose();
-              Swal.fire('Vinculado', 'El número de WhatsApp ha sido enlazado a este cliente.', 'success');
+              Swal.fire('Vinculado', 'El ID de WhatsApp ha sido enlazado a este cliente sin reemplazar su teléfono.', 'success');
            } catch {
               Swal.fire('Error', 'No se pudo vincular en la base de datos.', 'error');
            }
@@ -273,6 +287,7 @@ export default function Drawer({ open, onClose, lead, leads, tab, setTab, cfg, u
           Puesto: lead.Puesto || '',
           Tomador_Decision: lead.Tomador_Decision || '',
           Telefono: lead.Telefono || '',
+          LID: lead.LID || '',
           Correo_Corp: lead.Correo_Corp || '',
           Tamano_Org: lead.Tamano_Org || '',
           Num_Empleados: lead.Num_Empleados || '',
@@ -293,7 +308,7 @@ export default function Drawer({ open, onClose, lead, leads, tab, setTab, cfg, u
         // Nuevo Lead
         setF({
           Nombre_Persona: '', Nombre_Empresa: '', Puesto: '', Tomador_Decision: '',
-          Telefono: '', Correo_Corp: '', Tamano_Org: '', Num_Empleados: '',
+          Telefono: '', LID: '', Correo_Corp: '', Tamano_Org: '', Num_Empleados: '',
           Sitio_Web: '', Direccion: '', Presupuesto: '', Estado_Funnel: cfg.funnel?.[0]?.stage || ''
         });
         const cfsData = {};
@@ -401,7 +416,7 @@ export default function Drawer({ open, onClose, lead, leads, tab, setTab, cfg, u
             <button className={`dtab ${tab === 'perfil' ? 'on' : ''}`} onClick={() => setTab('perfil')}>Perfil</button>
             <button className={`dtab ${tab === 'int' ? 'on' : ''}`} onClick={() => setTab('int')}>Interacción</button>
             <button className={`dtab ${tab === 'hist' ? 'on' : ''}`} onClick={() => setTab('hist')}>Historial</button>
-            {lead?.Telefono && (
+            {(lead?.Telefono || lead?.LID) && (
               <button className={`dtab ${tab === 'wa' ? 'on' : ''}`} onClick={() => setTab('wa')} style={{ color: tab === 'wa' ? '#25d366' : undefined }}>
                 💬 WhatsApp
               </button>
@@ -435,6 +450,7 @@ export default function Drawer({ open, onClose, lead, leads, tab, setTab, cfg, u
                   </select>
                 </div>
                 <div className="fg"><label>Teléfono</label><input type="tel" value={f.Telefono || ''} onChange={e => setF({...f, Telefono: e.target.value})} /></div>
+                <div className="fg"><label style={{color: '#2563eb', fontWeight: '800'}}>LID (WhatsApp ID) ✨ NUEVO </label><input type="text" value={f.LID || ''} onChange={e => setF({...f, LID: e.target.value})} /></div>
                 <div className="fg">
                    <label>Correo Corporativo</label>
                    <div style={{display:'flex', gap:'6px'}}>
@@ -524,7 +540,7 @@ export default function Drawer({ open, onClose, lead, leads, tab, setTab, cfg, u
               <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#25d366', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>💬</div>
               <div style={{ flex: 1, minWidth: '120px' }}>
                 <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text)' }}>{lead?.Nombre_Persona || 'Contacto'}</div>
-                <div style={{ fontSize: '0.72rem', color: 'var(--muted)', fontFamily: 'monospace' }}>{lead?.Telefono}</div>
+                <div style={{ fontSize: '0.72rem', color: 'var(--muted)', fontFamily: 'monospace' }}>{lead?.LID || lead?.Telefono}</div>
               </div>
               
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
@@ -542,7 +558,7 @@ export default function Drawer({ open, onClose, lead, leads, tab, setTab, cfg, u
                 </button>
                 
                 <button
-                  onClick={() => loadWaHistory(lead?.Telefono)}
+                  onClick={() => loadWaHistory(lead?.Telefono, lead?.LID)}
                   style={{ background: 'var(--s1)', border: '1px solid var(--brd)', cursor: 'pointer', fontSize: '0.85rem', color: 'var(--muted)', padding: '4px 8px', borderRadius: '4px' }}
                   title="Recargar historial"
                 >🔄</button>

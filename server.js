@@ -23,6 +23,7 @@ const SESSION_DIR    = path.join(BASE_STORAGE, 'wa_session');
 const MESSAGES_FILE  = path.join(SESSION_DIR,  'messages.json');
 const UNREADS_FILE   = path.join(SESSION_DIR,  'unreads.json');
 const TASKS_DATA_DIR = path.join(BASE_STORAGE, 'crm_data');
+const CAMPAIGNS_FILE = path.join(TASKS_DATA_DIR, 'campaigns.json');
 
 function ensureDataDirs() {
   if (!fs.existsSync(SESSION_DIR))    fs.mkdirSync(SESSION_DIR,    { recursive: true });
@@ -43,17 +44,27 @@ function persistMessages() {
 function persistUnreads() {
   try { fs.writeFileSync(UNREADS_FILE, JSON.stringify(global.waUnreads), 'utf-8'); } catch {}
 }
-global.persistMessages = persistMessages;
-global.persistUnreads  = persistUnreads;
+function loadCampaigns() {
+  try { if (fs.existsSync(CAMPAIGNS_FILE)) return JSON.parse(fs.readFileSync(CAMPAIGNS_FILE, 'utf-8')); } catch {}
+  return [];
+}
+function persistCampaigns() {
+  try { fs.writeFileSync(CAMPAIGNS_FILE, JSON.stringify(global.campaigns), 'utf-8'); } catch {}
+}
+
+global.persistMessages  = persistMessages;
+global.persistUnreads   = persistUnreads;
+global.persistCampaigns = persistCampaigns;
 
 // ── Versión del servidor (actualizar para confirmar despliegues) ───────────────
-const SERVER_VERSION = 'v2026.04.20-LID';
+const SERVER_VERSION = 'v2026.04.20-LID-v2';
 
 // ── Estado global ─────────────────────────────────────────────────────────────
 global.waStatus   = { connected: false, qr: null, phone: null, state: 'disconnected' };
 global.waSocket   = null;
 global.waMessages = loadMessages();
 global.waUnreads  = loadUnreads();
+global.campaigns  = loadCampaigns();
 
 // ── Motor de WhatsApp ─────────────────────────────────────────────────────────
 async function startWhatsApp() {
@@ -202,8 +213,82 @@ async function startWhatsApp() {
     });
   }
 
-  // Iniciar primera conexión
-  await connect();
+  // ── Motor de Campañas ──────────────────────────────────────────────────
+  async function processCampaignsLoop() {
+    console.log('[Campaigns] Iniciando loop de procesamiento...');
+    
+    while (true) {
+      await new Promise(r => setTimeout(r, 20000)); // Check every 20s
+      
+      const now = Date.now();
+      const pending = global.campaigns.filter(c => c.status === 'pending' && new Date(c.scheduledAt).getTime() <= now);
+      
+      for (const campaign of pending) {
+        console.log(`[Campaigns] Procesando campaña: ${campaign.name || campaign.id}`);
+        campaign.status = 'processing';
+        persistCampaigns();
+        
+        let successCount = 0;
+        let failCount = 0;
+        
+        for (const contact of campaign.contacts) {
+          if (!global.waSocket || !global.waStatus.connected) {
+             console.error('[Campaigns] WhatsApp desconectado, abortando envío.');
+             break;
+          }
+
+          try {
+            const phone = String(contact.phone || '').replace(/[\s\-\+\(\)]/g, '');
+            const jid = phone.includes('@lid') ? phone : `${phone}@s.whatsapp.net`;
+            
+            // Personalización básica
+            let finalMsg = campaign.message;
+            if (contact.nombre) finalMsg = finalMsg.replace(/{nombre}/gi, contact.nombre);
+            if (contact.empresa) finalMsg = finalMsg.replace(/{empresa}/gi, contact.empresa);
+
+            const msgOptions = { text: finalMsg.trim() };
+            if (campaign.image) {
+              // Si hay imagen (esperamos base64 o URL)
+              msgOptions.image = { url: campaign.image };
+              msgOptions.caption = finalMsg.trim();
+              delete msgOptions.text;
+            }
+
+            await global.waSocket.sendMessage(jid, msgOptions);
+            
+            // Registrar en historial local
+            if (!global.waMessages[phone]) global.waMessages[phone] = [];
+            global.waMessages[phone].push({
+              id: `cmp_${Date.now()}`,
+              from: phone,
+              text: finalMsg.trim() + (campaign.image ? ' [Imagen 🖼️]' : ''),
+              fromMe: true,
+              timestamp: Date.now(),
+            });
+            persistMessages();
+
+            successCount++;
+            console.log(`[Campaigns] Mensaje enviado a ${phone} (${successCount}/${campaign.contacts.length})`);
+          } catch (err) {
+            failCount++;
+            console.error(`[Campaigns] Error enviando a ${contact.phone}:`, err.message);
+          }
+
+          // Anti-ban delay: 6 segundos
+          await new Promise(r => setTimeout(r, 6000));
+        }
+
+        campaign.status = 'completed';
+        campaign.results = { success: successCount, failed: failCount, finishedAt: new Date().toISOString() };
+        persistCampaigns();
+        console.log(`[Campaigns] Campaña finalizada: ${campaign.name || campaign.id}. Éxitos: ${successCount}, Errores: ${failCount}`);
+      }
+    }
+  }
+
+  // Iniciar loops
+  connect();
+  processCampaignsLoop().catch(err => console.error('[Campaigns] Error fatal en loop:', err));
 }
 
 // ── Arranque principal ────────────────────────────────────────────────────────

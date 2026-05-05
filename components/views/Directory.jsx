@@ -2,43 +2,14 @@
 
 import { useState, useMemo, useEffect } from 'react';
 
-export default function Directory({ leads, cfg, user, openDrawer, hideUnknowns, unknownsOnly }) {
+export default function Directory({ 
+  leads, cfg, user, openDrawer, hideUnknowns, unknownsOnly, unreads, threads,
+  selectedForCampaign = [], setSelectedForCampaign, onGoToCampaign 
+}) {
   const [q, setQ] = useState('');
   const [cpOpen, setCpOpen] = useState(false);
   const [sortCol, setSortCol] = useState('ID_Contacto');
   const [sortAsc, setSortAsc] = useState(true);
-
-  // Unread WA messages & Active Threads
-  const [unreads, setUnreads] = useState({});
-  const [threads, setThreads] = useState([]);
-
-  useEffect(() => {
-    const fetchWAData = async () => {
-      try {
-        const [resU, resT] = await Promise.all([
-          fetch('/api/whatsapp', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'unread' })
-          }),
-          fetch('/api/whatsapp', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'threads' })
-          })
-        ]);
-        
-        const dataU = await resU.json();
-        const dataT = await resT.json();
-        
-        if (dataU && !dataU.error) setUnreads(dataU);
-        if (dataT && Array.isArray(dataT)) setThreads(dataT);
-      } catch {}
-    };
-    fetchWAData();
-    const interval = setInterval(fetchWAData, 8000);
-    return () => clearInterval(interval);
-  }, []);
 
   // Helper for cleaning phone (same as API)
   const cleanPhoneStr = (p) => String(p || '').replace(/[\s\-\+\(\)]/g, '');
@@ -148,6 +119,16 @@ export default function Directory({ leads, cfg, user, openDrawer, hideUnknowns, 
         <div className="dc cr"><div className="lbl">Congelados SLA</div><div className="val">{congelados}</div></div>
       </div>
 
+      <div style={{ padding: '0 20px', display: selectedForCampaign.length > 0 ? 'block' : 'none' }}>
+        <div style={{ background: 'var(--s1)', border: '1px solid var(--brd)', padding: '10px 15px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+           <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>{selectedForCampaign.length} contactos seleccionados</span>
+           <div style={{ display: 'flex', gap: '10px' }}>
+             <button className="btn btnr" onClick={() => setSelectedForCampaign([])}>Descartar</button>
+             <button className="btn btng" onClick={onGoToCampaign}>📣 Crear Campaña</button>
+           </div>
+        </div>
+      </div>
+
       <div id="toolbar">
         <input type="text" id="q" placeholder="🔍 Buscar por nombre, empresa..." value={q} onChange={e => setQ(e.target.value)} />
         <div id="cpwrap">
@@ -175,17 +156,38 @@ export default function Directory({ leads, cfg, user, openDrawer, hideUnknowns, 
                   {c.label} {sortCol === c.key ? (sortAsc ? '▲' : '▼') : ''}
                 </th>
               ))}
+              <th style={{ width: '40px' }}></th>
             </tr>
           </thead>
           <tbody>
-            {filtered.map(l => (
-              <tr key={l.ID_Contacto} onClick={() => openDrawer(l)}>
+            {filtered.map(l => {
+              const phone = l.Telefono || l.ID_Contacto;
+              const isSelected = selectedForCampaign.some(c => c.phone === phone);
+              
+              const toggleS = (e) => {
+                e.stopPropagation();
+                if (isSelected) {
+                  setSelectedForCampaign(selectedForCampaign.filter(c => c.phone !== phone));
+                } else {
+                  if (selectedForCampaign.length >= 50) return;
+                  setSelectedForCampaign([...selectedForCampaign, { 
+                    phone, 
+                    nombre: l.Nombre_Persona, 
+                    empresa: l.Nombre_Empresa 
+                  }]);
+                }
+              };
+
+              return (
+              <tr key={l.ID_Contacto} onClick={() => openDrawer(l)} style={{ background: isSelected ? 'rgba(var(--accent-rgb), 0.05)' : '' }}>
                 {allCols.filter(c => visCols.includes(c.key)).map(c => {
                   const val = l[c.key];
                   if (c.key === 'Estado_Funnel') return <td key={c.key}>{getBadge(val)}</td>;
                   if (c.key === 'Nombre_Persona') {
-                    const phone = String(l.Telefono || '').replace(/[\s\-\+\(\)]/g, '').slice(-10);
-                    const u = unreads[phone];
+                    const phoneSuffix = String(l.Telefono || '').replace(/[\s\-\+\(\)]/g, '').slice(-10);
+                    const lidId = l.LID;
+                    const u = (unreads[phoneSuffix] || 0) + (unreads[lidId] || 0);
+                    
                     return (
                       <td key={c.key}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -201,8 +203,12 @@ export default function Directory({ leads, cfg, user, openDrawer, hideUnknowns, 
                   }
                   return <td key={c.key}>{val}</td>;
                 })}
+                <td onClick={toggleS}>
+                  <input type="checkbox" checked={isSelected} onChange={() => {}} />
+                </td>
               </tr>
-            ))}
+              );
+            })}
             {filtered.length === 0 && (
               <tr>
                 <td colSpan={visCols.length} style={{ textAlign: 'center', padding: '20px', color: 'var(--muted)' }}>
