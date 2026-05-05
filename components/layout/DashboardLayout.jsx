@@ -172,7 +172,11 @@ export default function DashboardLayout({ user }) {
   return (
     <div id="app" style={{ display: 'flex' }}>
       <nav id="nav">
-        <div className="logo">CRM<span>Pro</span></div>
+        {process.env.NEXT_PUBLIC_BRAND_LOGO ? (
+          <img src={process.env.NEXT_PUBLIC_BRAND_LOGO} alt="Logo" style={{ height: '32px', objectFit: 'contain' }} />
+        ) : (
+          <div className="logo">{process.env.NEXT_PUBLIC_BRAND_NAME || 'CRM'}<span>{process.env.NEXT_PUBLIC_BRAND_NAME ? '' : 'Pro'}</span></div>
+        )}
         <div className="tabs">
           <button className={`tab ${activeTab === 'dir' ? 'on' : ''}`} onClick={() => setActiveTab('dir')}>Directorio</button>
           <button className={`tab ${activeTab === 'unks' ? 'on' : ''}`} onClick={() => setActiveTab('unks')}>👽 Desconocidos</button>

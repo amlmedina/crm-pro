@@ -36,8 +36,12 @@ export default function Login() {
   return (
     <div id="pglogin">
       <div className="lbox">
-        <h1>CRM<span>Pro</span></h1>
-        <p className="mono">Sistema de Seguridad Estricta · Palmer ISO 27001</p>
+        {process.env.NEXT_PUBLIC_BRAND_LOGO ? (
+          <img src={process.env.NEXT_PUBLIC_BRAND_LOGO} alt="Logo" style={{ height: '48px', marginBottom: '10px', objectFit: 'contain' }} />
+        ) : (
+          <h1>{process.env.NEXT_PUBLIC_BRAND_NAME || 'CRM'}<span>{process.env.NEXT_PUBLIC_BRAND_NAME ? '' : 'Pro'}</span></h1>
+        )}
+        <p className="mono">Sistema de Seguridad Estricta · {process.env.NEXT_PUBLIC_BRAND_NAME || 'Palmer ISO 27001'}</p>
         <form onSubmit={handleLogin}>
           <div className="fg">
             <label>Correo electrónico Corporativo</label>

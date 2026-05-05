@@ -12,14 +12,27 @@ const ibmPlexMono = IBM_Plex_Mono({
   weight: ["400", "600", "700"],
 });
 
-export const metadata = {
-  title: "CRM Pro — Palmer",
-  description: "Sistema interno de gestión comercial (ISO 27001)",
-};
+export async function generateMetadata() {
+  return {
+    title: process.env.NEXT_PUBLIC_BRAND_NAME || "CRM Pro — Palmer",
+    description: "Sistema interno de gestión comercial (ISO 27001)",
+  };
+}
 
 export default function RootLayout({ children }) {
+  const brandColor = process.env.NEXT_PUBLIC_BRAND_COLOR || "#0176D3"; // Default Navy
+
   return (
     <html lang="es" className={`${syne.variable} ${ibmPlexMono.variable}`}>
+      <head>
+        <style>{`
+          :root {
+            --navy: ${brandColor};
+            --navy-light: ${brandColor}15;
+            --navy-hover: ${brandColor}e6;
+          }
+        `}</style>
+      </head>
       <body>{children}</body>
     </html>
   );
