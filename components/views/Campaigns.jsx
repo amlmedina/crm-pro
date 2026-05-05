@@ -168,7 +168,7 @@ export default function Campaigns({ leads, user, initialSelection = [], onClearS
         });
 
         if (lead) {
-            openDrawer(lead, 'chat');
+            openDrawer(lead, 'wa');
         } else {
             Swal.fire('No encontrado', 'No se encontró a este contacto en la base de datos actual (pudo haber sido borrado).', 'info');
         }
@@ -268,7 +268,12 @@ export default function Campaigns({ leads, user, initialSelection = [], onClearS
                             {selectedCampaign.contacts.map((c, i) => (
                                 <div key={i} style={{ padding: '10px 12px', borderBottom: '1px solid var(--brd)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                     <div style={{ flex: 1, overflow: 'hidden' }}>
-                                        <div style={{ fontSize: '0.9rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.nombre}</div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <span style={{ fontSize: '0.9rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.nombre}</span>
+                                            {c.status === 'sent' && <span style={{ fontSize: '0.7rem', color: '#25d366' }}>✅ Enviado</span>}
+                                            {c.status === 'failed' && <span style={{ fontSize: '0.7rem', color: '#ef4444' }} title={c.errorMsg}>❌ Falló</span>}
+                                            {(!c.status || c.status === 'pending') && selectedCampaign.status === 'processing' && <span style={{ fontSize: '0.7rem', color: '#eab308' }}>⏳ En proceso</span>}
+                                        </div>
                                         <div style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>{c.phone}</div>
                                     </div>
                                     <button className="btn btngh" style={{ fontSize: '0.7rem', padding: '4px 8px', whiteSpace: 'nowrap', marginLeft: '10px' }} onClick={() => handleViewChat(c.phone)}>

@@ -270,12 +270,18 @@ async function startWhatsApp() {
             });
             persistMessages();
 
+            contact.status = 'sent';
             successCount++;
             console.log(`[Campaigns] Mensaje enviado a ${phone} (${successCount}/${campaign.contacts.length})`);
           } catch (err) {
+            contact.status = 'failed';
+            contact.errorMsg = err.message;
             failCount++;
             console.error(`[Campaigns] Error enviando a ${contact.phone}:`, err.message);
           }
+
+          // Guardar estado intermedio
+          persistCampaigns();
 
           // Anti-ban delay: 6 segundos
           await new Promise(r => setTimeout(r, 6000));
