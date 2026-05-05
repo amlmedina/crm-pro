@@ -6,7 +6,8 @@ import Swal from 'sweetalert2';
 export default function Campaigns({ leads, user, initialSelection = [], onClearSelection }) {
     const [campaigns, setCampaigns] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [view, setView] = useState(initialSelection.length > 0 ? 'create' : 'list'); // 'list', 'create'
+    const [view, setView] = useState(initialSelection.length > 0 ? 'create' : 'list'); // 'list', 'create', 'details'
+    const [selectedCampaign, setSelectedCampaign] = useState(null);
 
     // Form state
     const [name, setName] = useState('');
@@ -141,7 +142,36 @@ export default function Campaigns({ leads, user, initialSelection = [], onClearS
                 body: JSON.stringify({ action: 'delete', campaign: { id } })
             });
             fetchCampaigns();
+            if (selectedCampaign?.id === id) setView('list');
         } catch {}
+    }
+
+    function handleRecycle(c) {
+        setName(`Copia de ${c.name}`);
+        setMessage(c.message);
+        setImage(c.image || null);
+        setSelectedContacts(c.contacts || []);
+        setScheduledAt('');
+        setView('create');
+    }
+
+    function handleViewChat(contactPhone) {
+        if (!openDrawer) return Swal.fire('Error', 'Función de chat no disponible en esta vista', 'error');
+        // Limpiar el teléfono para buscar
+        const cleanP = String(contactPhone).replace(/[\s\-\+\(\)]/g, '');
+        // Buscar el lead en la lista global
+        const lead = leads.find(l => {
+            const lPhone = String(l.Telefono || '').replace(/[\s\-\+\(\)]/g, '');
+            const lId = String(l.ID_Contacto || '').replace(/[\s\-\+\(\)]/g, '');
+            const lLid = String(l.LID || '').replace(/[\s\-\+\(\)]/g, '');
+            return lPhone.includes(cleanP) || lId.includes(cleanP) || lLid.includes(cleanP);
+        });
+
+        if (lead) {
+            openDrawer(lead, 'chat');
+        } else {
+            Swal.fire('No encontrado', 'No se encontró a este contacto en la base de datos actual (pudo haber sido borrado).', 'info');
+        }
     }
 
     return (
@@ -185,7 +215,11 @@ export default function Campaigns({ leads, user, initialSelection = [], onClearS
                                         ) : '-'}
                                     </td>
                                     <td>
-                                        <button className="btn btnr" style={{ padding: '4px 8px' }} onClick={() => deleteCampaign(c.id)}>Eliminar</button>
+                                        <div style={{ display: 'flex', gap: '5px' }}>
+                                            <button className="btn btngh" style={{ padding: '4px 8px' }} onClick={() => { setSelectedCampaign(c); setView('details'); }}>Ver Detalles</button>
+                                            <button className="btn btny" style={{ padding: '4px 8px' }} onClick={() => handleRecycle(c)}>Reciclar</button>
+                                            <button className="btn btnr" style={{ padding: '4px 8px' }} onClick={() => deleteCampaign(c.id)}>Eliminar</button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
@@ -194,6 +228,56 @@ export default function Campaigns({ leads, user, initialSelection = [], onClearS
                             )}
                         </tbody>
                     </table>
+                </div>
+            ) : view === 'details' && selectedCampaign ? (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '20px', flex: 1, overflow: 'hidden' }}>
+                    {/* Left: Campaign Info */}
+                    <div className="card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '15px', overflowY: 'auto' }}>
+                        <div>
+                            <h3 style={{ margin: '0 0 10px 0' }}>{selectedCampaign.name}</h3>
+                            <span className={`badge ${selectedCampaign.status === 'completed' ? 'bg' : selectedCampaign.status === 'processing' ? 'bb' : 'by'}`}>
+                                {selectedCampaign.status.toUpperCase()}
+                            </span>
+                        </div>
+                        
+                        <div>
+                            <label className="lbl">Mensaje Original</label>
+                            <div style={{ padding: '12px', background: 'var(--s2)', borderRadius: '4px', whiteSpace: 'pre-wrap', fontSize: '0.9rem', border: '1px solid var(--brd)' }}>
+                                {selectedCampaign.message}
+                            </div>
+                        </div>
+
+                        {selectedCampaign.image && (
+                            <div>
+                                <label className="lbl">Imagen Adjunta</label>
+                                <img src={selectedCampaign.image} style={{ maxWidth: '200px', borderRadius: '8px', border: '1px solid var(--brd)' }} />
+                            </div>
+                        )}
+
+                        <div style={{ marginTop: 'auto', paddingTop: '20px', display: 'flex', gap: '10px' }}>
+                            <button className="btn btny" style={{ padding: '12px', flex: 1 }} onClick={() => handleRecycle(selectedCampaign)}>
+                                ♻️ Clonar / Reciclar esta Campaña
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Right: Contact List */}
+                    <div className="card" style={{ padding: '15px', display: 'flex', flexDirection: 'column', gap: '10px', overflow: 'hidden' }}>
+                        <h3 style={{ margin: 0 }}>Contactos ({selectedCampaign.contacts.length})</h3>
+                        <div style={{ flex: 1, overflowY: 'auto', border: '1px solid var(--brd)', borderRadius: '4px' }}>
+                            {selectedCampaign.contacts.map((c, i) => (
+                                <div key={i} style={{ padding: '10px 12px', borderBottom: '1px solid var(--brd)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <div style={{ flex: 1, overflow: 'hidden' }}>
+                                        <div style={{ fontSize: '0.9rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.nombre}</div>
+                                        <div style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>{c.phone}</div>
+                                    </div>
+                                    <button className="btn btngh" style={{ fontSize: '0.7rem', padding: '4px 8px', whiteSpace: 'nowrap', marginLeft: '10px' }} onClick={() => handleViewChat(c.phone)}>
+                                        💬 Ver Chat
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
                 </div>
             ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '20px', flex: 1, overflow: 'hidden' }}>

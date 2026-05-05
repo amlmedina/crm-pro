@@ -252,7 +252,7 @@ export default function DashboardLayout({ user }) {
           </div>
 
           <div style={{ display: activeTab === 'campaigns' ? 'flex' : 'none', flex: 1, overflow: 'hidden' }}>
-            <Campaigns leads={leads} user={user} initialSelection={selectedForCampaign} onClearSelection={() => setSelectedForCampaign([])} />
+            <Campaigns leads={leads} user={user} openDrawer={openDrawer} initialSelection={selectedForCampaign} onClearSelection={() => setSelectedForCampaign([])} />
           </div>
 
           {user.rol === 'Gerente' && (
