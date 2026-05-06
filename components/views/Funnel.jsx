@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react';
 import { api } from '@/lib/api';
 import Swal from 'sweetalert2';
 
-export default function Funnel({ leads, cfg, user, openDrawer, setLeads, unreads, usersMap = {} }) {
+export default function Funnel({ leads, cfg, user, openDrawer, setLeads, unreads, usersMap = {}, refreshLeads }) {
   const [draggedId, setDraggedId] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [agentFilter, setAgentFilter] = useState('todos');
@@ -35,16 +35,7 @@ export default function Funnel({ leads, cfg, user, openDrawer, setLeads, unreads
     return Array.from(names).sort();
   }, [leads, usersMap]);
 
-  // SLA Strikes function
-  function getStrikeCount(l, stage) {
-    if (l.Estado_Funnel !== stage || !l.Historial || !l.Historial.length) return 0;
-    let st = 0;
-    for (const h of l.Historial) {
-      if (h.Estado_Momento === stage) st++;
-      else break;
-    }
-    return st - 1;
-  }
+  // SLA function removed per user request
 
   const handleDragStart = (e, id) => {
     setDraggedId(id);
@@ -154,9 +145,22 @@ export default function Funnel({ leads, cfg, user, openDrawer, setLeads, unreads
           </div>
         )}
 
-        {/* Summary badge */}
-        <div style={{ fontSize: '0.78rem', color: 'var(--muted)', padding: '6px 12px', background: 'var(--s2)', borderRadius: '20px', border: '1px solid var(--brd)', whiteSpace: 'nowrap' }}>
-          {filteredLeads.length} contactos · <strong style={{ color: 'var(--text)' }}>{activeLabel}</strong>
+        {/* Summary badge & Refresh */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ fontSize: '0.78rem', color: 'var(--muted)', padding: '6px 12px', background: 'var(--s2)', borderRadius: '20px', border: '1px solid var(--brd)', whiteSpace: 'nowrap' }}>
+            {filteredLeads.length} contactos · <strong style={{ color: 'var(--text)' }}>{activeLabel}</strong>
+          </div>
+          
+          {refreshLeads && (
+            <button 
+              className="btn btngh" 
+              onClick={refreshLeads} 
+              style={{ padding: '6px 12px', fontSize: '0.8rem', borderRadius: '20px' }}
+              title="Actualizar Datos"
+            >
+              🔄 Actualizar
+            </button>
+          )}
         </div>
       </div>
 
@@ -175,31 +179,24 @@ export default function Funnel({ leads, cfg, user, openDrawer, setLeads, unreads
               <div className="khdr">
                 <div>
                   <div className="ktitle">{f.stage}</div>
-                  <div className="ksla">SLA: {f.limit} strikes</div>
                 </div>
                 <div className="kcnt">{colLeads.length}</div>
               </div>
               <div className="kcards">
                 {colLeads.map(l => {
-                  const strikes = getStrikeCount(l, f.stage);
-                  const isOver = f.limit > 0 && strikes >= f.limit;
                   const phoneSuffix = String(l.Telefono || '').replace(/[\s\-\+\(\)]/g, '').slice(-10);
                   const u = (unreads[phoneSuffix] || 0) + (unreads[l.LID] || 0);
                   return (
                     <div
-                      className={`kcard ${isOver ? 'over' : ''}`}
+                      className="kcard"
                       key={l.ID_Contacto}
                       draggable
                       onDragStart={(e) => handleDragStart(e, l.ID_Contacto)}
                       onClick={() => openDrawer(l)}
-                      style={{ 
-                        borderLeftColor: getAgentColor(resolveName(l.Agente_Asignado)),
-                        borderRight: isOver ? '3px solid var(--danger)' : 'none'
-                      }}
+                      style={{ borderLeftColor: getAgentColor(resolveName(l.Agente_Asignado)) }}
                     >
                       <div className="kname" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          {isOver && <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--danger)' }} title="SLA Vencido"></span>}
                           {l.Nombre_Persona}
                         </div>
                         {u > 0 && (
@@ -218,11 +215,6 @@ export default function Funnel({ leads, cfg, user, openDrawer, setLeads, unreads
                       {isManager && agentFilter === 'todos' && l.Agente_Asignado && (
                         <div style={{ fontSize: '0.68rem', color: 'var(--muted)', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '3px' }}>
                           <span>👤</span> {resolveName(l.Agente_Asignado)}
-                        </div>
-                      )}
-                      {isOver && (
-                        <div style={{ fontSize: '10px', color: 'var(--danger)', marginTop: '6px' }}>
-                          ⚠️ {strikes}/{f.limit} Interacciones
                         </div>
                       )}
                     </div>

@@ -496,17 +496,15 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
 
       <div className="acard">
         <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px'}}>
-          <h3 style={{margin:0}}>Etapas del Funnel & SLA</h3>
+          <h3 style={{margin:0}}>Etapas del Funnel</h3>
           <button className="btn btnda" onClick={addStage}>+ Etapa</button>
         </div>
-        <div style={{display:'grid', gridTemplateColumns:'1fr 70px 38px', gap:'10px', marginBottom:'8px'}}>
+        <div style={{display:'grid', gridTemplateColumns:'1fr 38px', gap:'10px', marginBottom:'8px'}}>
           <label style={{fontSize:'.67rem', color:'var(--muted)', fontWeight:700}}>Etapa</label>
-          <label style={{fontSize:'.67rem', color:'var(--muted)', fontWeight:700, textAlign:'center'}}>Strikes</label>
         </div>
         {funnel.map((f, i) => (
-          <div className="strow" key={i}>
-            <input type="text" style={{flex:1}} value={f.stage} onChange={e => updateStage(i, 'stage', e.target.value)} />
-            <input type="number" style={{width:'70px', textAlign:'center'}} value={f.limit} onChange={e => updateStage(i, 'limit', parseInt(e.target.value)||0)} />
+          <div className="strow" key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 38px', gap: '10px', marginBottom: '6px' }}>
+            <input type="text" style={{width: '100%'}} value={f.stage} onChange={e => updateStage(i, 'stage', e.target.value)} />
             <button className="btn btndel" onClick={() => rmStage(i)}>✕</button>
           </div>
         ))}
