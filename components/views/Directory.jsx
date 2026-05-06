@@ -102,20 +102,9 @@ export default function Directory({
     return <span className="badge by">{status}</span>; // warning defaults
   }
 
-  // KPIs
-  const totalActivos = leads.filter(l => l.Estado_Funnel && l.Estado_Funnel !== 'Congelado').length;
-  const ganados = leads.filter(l => l.Estado_Funnel && l.Estado_Funnel.toLowerCase().includes('ganado')).length;
-  const enProceso = leads.filter(l => l.Estado_Funnel && !l.Estado_Funnel.toLowerCase().includes('ganado') && l.Estado_Funnel !== 'Congelado').length;
-  const congelados = leads.filter(l => l.Estado_Funnel === 'Congelado').length;
 
   return (
     <div className="view on" style={{ display: 'flex', flexDirection: 'column' }}>
-      <div id="dash">
-        <div className="dc cg"><div className="lbl">Base Activa</div><div className="val">{totalActivos}</div></div>
-        <div className="dc cb"><div className="lbl">En Proceso</div><div className="val">{enProceso}</div></div>
-        <div className="dc cg"><div className="lbl">Ganados</div><div className="val">{ganados}</div></div>
-        <div className="dc cr"><div className="lbl">Congelados SLA</div><div className="val">{congelados}</div></div>
-      </div>
 
       <div style={{ padding: '0 20px', display: selectedForCampaign.length > 0 ? 'block' : 'none' }}>
         <div style={{ background: 'var(--s1)', border: '1px solid var(--brd)', padding: '10px 15px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
