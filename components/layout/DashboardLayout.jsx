@@ -100,15 +100,19 @@ export default function DashboardLayout({ user }) {
         const usersRes = await api('getUsuarios');
         const map = {};
         (usersRes || []).forEach(u => {
-          // Map by every possible identifier the GAS might have stored
-          if (u.id !== undefined && u.id !== null) map[String(u.id)] = u.nombre;
-          if (u.nombre) map[u.nombre] = u.nombre;
-          if (u.correo) {
-            map[u.correo] = u.nombre;
-            // Also map the part before @ in case it's stored as username
-            const prefix = u.correo.split('@')[0];
-            if (prefix) map[prefix] = u.nombre;
-            if (prefix) map[prefix.toUpperCase()] = u.nombre;
+          // GAS may return keys with original sheet casing (ID_Usuario, Nombre)
+          // or lowercased (id, nombre) — handle both
+          const id     = u.ID_Usuario ?? u.id_usuario ?? u.id;
+          const nombre = u.Nombre     ?? u.nombre;
+          const correo = u.Correo     ?? u.correo;
+
+          if (id     !== undefined && id !== null) map[String(id)] = nombre;
+          if (nombre) map[nombre] = nombre; // passthrough
+          if (correo) {
+            map[correo] = nombre;
+            const prefix = correo.split('@')[0];
+            if (prefix) map[prefix] = nombre;
+            if (prefix) map[prefix.toUpperCase()] = nombre;
           }
         });
         setUsersMap(map);
