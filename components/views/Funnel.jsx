@@ -17,6 +17,17 @@ export default function Funnel({ leads, cfg, user, openDrawer, setLeads, unreads
     return usersMap[val] || val; // fallback to raw value if not in map
   }
 
+  // Generates a consistent vibrant color based on agent's name
+  function getAgentColor(name) {
+    if (!name || name === 'Sin Asignar') return 'var(--muted)';
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+      hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const h = Math.abs(hash) % 360;
+    return `hsl(${h}, 70%, 55%)`;
+  }
+
   // All unique resolved agent names from leads
   const agentOptions = useMemo(() => {
     const names = new Set();
@@ -181,16 +192,28 @@ export default function Funnel({ leads, cfg, user, openDrawer, setLeads, unreads
                       draggable
                       onDragStart={(e) => handleDragStart(e, l.ID_Contacto)}
                       onClick={() => openDrawer(l)}
-                      style={{ borderLeftColor: isOver ? 'var(--danger)' : 'var(--navy)' }}
+                      style={{ 
+                        borderLeftColor: getAgentColor(resolveName(l.Agente_Asignado)),
+                        borderRight: isOver ? '3px solid var(--danger)' : 'none'
+                      }}
                     >
                       <div className="kname" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        {l.Nombre_Persona}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          {isOver && <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--danger)' }} title="SLA Vencido"></span>}
+                          {l.Nombre_Persona}
+                        </div>
                         {u > 0 && (
                           <span style={{ background: '#ef4444', color: '#fff', borderRadius: '10px', padding: '1px 6px', fontSize: '0.65rem', fontWeight: 'bold' }}>
                             {u}
                           </span>
                         )}
                       </div>
+                      
+                      <div className="kmeta">
+                        {l.Ultima_Interaccion && <span>🕒 {l.Ultima_Interaccion}</span>}
+                        {l.Estado_Funnel === 'Congelado' && <span className="ct">❄️ Congelado</span>}
+                      </div>
+                      
                       {/* Show assigned agent on card when manager views "todos" */}
                       {isManager && agentFilter === 'todos' && l.Agente_Asignado && (
                         <div style={{ fontSize: '0.68rem', color: 'var(--muted)', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '3px' }}>
@@ -219,7 +242,12 @@ export default function Funnel({ leads, cfg, user, openDrawer, setLeads, unreads
             </div>
             <div className="kcards">
               {frozenLeads.map(l => (
-                <div className="kcard fz" key={l.ID_Contacto} onClick={() => openDrawer(l)}>
+                <div 
+                  className="kcard fz" 
+                  key={l.ID_Contacto} 
+                  onClick={() => openDrawer(l)}
+                  style={{ borderLeftColor: getAgentColor(resolveName(l.Agente_Asignado)) }}
+                >
                   <div className="kname" style={{ color: 'var(--muted)' }}>{l.Nombre_Persona}</div>
                   {isManager && agentFilter === 'todos' && l.Agente_Asignado && (
                     <div style={{ fontSize: '0.68rem', color: 'var(--muted)', marginTop: '2px' }}>👤 {resolveName(l.Agente_Asignado)}</div>
