@@ -216,6 +216,70 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
     }
   }
 
+  async function doDeleteUser(uid, uname) {
+    if (uid === user.id) return Swal.fire('Acción denegada', 'No puedes eliminar tu propio usuario', 'error');
+    const { isConfirmed } = await Swal.fire({
+      title: `¿Eliminar a ${uname}?`,
+      text: 'No podrá volver a iniciar sesión.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar'
+    });
+    if (!isConfirmed) return;
+    try {
+      await api('deleteUser', { userId: uid });
+      Swal.fire('✅ Eliminado', '', 'success');
+      loadUsers();
+    } catch {
+      Swal.fire('Error', 'No se pudo eliminar el usuario', 'error');
+    }
+  }
+
+  async function doEditUser(u) {
+    const { value: formVals } = await Swal.fire({
+      title: `Editar a ${u.nombre}`,
+      html: `
+        <div style="display:flex; flex-direction:column; gap:10px; text-align:left;">
+          <label style="font-size:0.8rem;font-weight:bold;color:var(--muted)">Nombre</label>
+          <input id="eu_name" class="swal2-input" style="margin:0" value="${u.nombre}" />
+          <label style="font-size:0.8rem;font-weight:bold;color:var(--muted)">Correo</label>
+          <input id="eu_email" class="swal2-input" style="margin:0" value="${u.correo}" />
+          <label style="font-size:0.8rem;font-weight:bold;color:var(--muted)">Teléfono</label>
+          <input id="eu_tel" class="swal2-input" style="margin:0" value="${u.telefono || ''}" />
+          <label style="font-size:0.8rem;font-weight:bold;color:var(--muted)">Rol</label>
+          <select id="eu_rol" class="swal2-select" style="margin:0">
+            <option value="Agente" ${u.rol === 'Agente' ? 'selected' : ''}>Agente</option>
+            <option value="Gerente" ${u.rol === 'Gerente' ? 'selected' : ''}>Gerente</option>
+          </select>
+        </div>
+      `,
+      showCancelButton: true,
+      confirmButtonText: 'Guardar',
+      preConfirm: () => {
+        return {
+          nombre: document.getElementById('eu_name').value,
+          correo: document.getElementById('eu_email').value,
+          telefono: document.getElementById('eu_tel').value,
+          rol: document.getElementById('eu_rol').value,
+        };
+      }
+    });
+
+    if (formVals && formVals.nombre && formVals.correo) {
+      if (u.id === user.id && formVals.rol !== 'Gerente') {
+        return Swal.fire('Error', 'No puedes quitarte el rol de Gerente a ti mismo', 'error');
+      }
+      try {
+        await api('updateUser', { userId: u.id, ...formVals });
+        Swal.fire('✅ Actualizado', '', 'success');
+        loadUsers();
+      } catch {
+        Swal.fire('Error', 'No se pudo actualizar', 'error');
+      }
+    }
+  }
+
   return (
     <div className="view on" id="vadmin" style={{ maxWidth: '900px', margin: '0 auto' }}>
 
@@ -376,7 +440,13 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
                   <td><strong>{u.nombre}</strong></td>
                   <td>{u.correo}</td>
                   <td><span className={`badge ${u.rol==='Gerente'?'by':'bb'}`}>{u.rol}</span></td>
-                  <td><button className="btn btnda" style={{padding:'4px 8px'}} onClick={() => doResetPass(u.id, u.nombre)}>🔑 Clave</button></td>
+                  <td>
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <button className="btn btngh" style={{padding:'4px 8px', fontSize: '0.75rem'}} onClick={() => doEditUser(u)}>✏️ Editar</button>
+                      <button className="btn btnda" style={{padding:'4px 8px', fontSize: '0.75rem'}} onClick={() => doResetPass(u.id, u.nombre)}>🔑 Clave</button>
+                      <button className="btn btndel" style={{padding:'4px 8px', fontSize: '0.75rem'}} onClick={() => doDeleteUser(u.id, u.nombre)}>✕ Borrar</button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>

@@ -58,6 +58,16 @@ export default function Campaigns({ leads, cfg, user, openDrawer, initialSelecti
         setNewFilterVal('');
     }
 
+    function extractMMDD(val) {
+        if (!val) return null;
+        const s = String(val).trim();
+        const ymd = s.match(/\d{4}-(\d{2})-(\d{2})/);
+        if (ymd) return `${ymd[1]}-${ymd[2]}`;
+        const md = s.match(/^(\d{2})-(\d{2})$/);
+        if (md) return `${md[1]}-${md[2]}`;
+        return s;
+    }
+
     useEffect(() => {
         fetchCampaigns();
     }, []);
@@ -182,8 +192,9 @@ export default function Campaigns({ leads, cfg, user, openDrawer, initialSelecti
 
     async function handleScheduleBirthdays() {
         const bdayLeads = leads.filter(l => {
-            if (!l.Cumpleanos) return false;
-            return String(l.Cumpleanos).startsWith(bdayMonth + '-');
+            const md = extractMMDD(l.Cumpleanos);
+            if (!md) return false;
+            return md.startsWith(bdayMonth + '-');
         });
 
         if (bdayLeads.length === 0) {
@@ -353,10 +364,16 @@ export default function Campaigns({ leads, cfg, user, openDrawer, initialSelecti
                     <div style={{ marginTop: '20px', padding: '15px', background: 'var(--s2)', borderRadius: '8px', border: '1px solid var(--brd)' }}>
                         <h4 style={{ margin: '0 0 10px 0' }}>Contactos que cumplen en el mes seleccionado:</h4>
                         <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
-                            {leads.filter(l => l.Cumpleanos && String(l.Cumpleanos).startsWith(bdayMonth + '-')).length > 0 ? (
-                                leads.filter(l => l.Cumpleanos && String(l.Cumpleanos).startsWith(bdayMonth + '-')).map(l => (
+                            {leads.filter(l => {
+                                const md = extractMMDD(l.Cumpleanos);
+                                return md && md.startsWith(bdayMonth + '-');
+                            }).length > 0 ? (
+                                leads.filter(l => {
+                                    const md = extractMMDD(l.Cumpleanos);
+                                    return md && md.startsWith(bdayMonth + '-');
+                                }).map(l => (
                                     <div key={l.ID_Contacto} style={{ fontSize: '0.8rem', padding: '4px 0', borderBottom: '1px solid var(--brd)' }}>
-                                        <strong>{l.Nombre_Persona}</strong> — Cumple el: {l.Cumpleanos}
+                                        <strong>{l.Nombre_Persona}</strong> — Cumple el: {extractMMDD(l.Cumpleanos)}
                                     </div>
                                 ))
                             ) : (
@@ -369,7 +386,10 @@ export default function Campaigns({ leads, cfg, user, openDrawer, initialSelecti
                         className="btn btny" 
                         style={{ width: '100%', marginTop: '20px', padding: '12px' }}
                         onClick={handleScheduleBirthdays}
-                        disabled={leads.filter(l => l.Cumpleanos && String(l.Cumpleanos).startsWith(bdayMonth + '-')).length === 0}
+                        disabled={leads.filter(l => {
+                            const md = extractMMDD(l.Cumpleanos);
+                            return md && md.startsWith(bdayMonth + '-');
+                        }).length === 0}
                     >
                         🚀 Programar Cumpleaños del Mes
                     </button>
@@ -540,7 +560,10 @@ export default function Campaigns({ leads, cfg, user, openDrawer, initialSelecti
                                     const today = new Date();
                                     const monthDay = `${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
                                     const toAdd = filteredLeads
-                                        .filter(l => l.Cumpleanos && (String(l.Cumpleanos).endsWith(monthDay) || String(l.Cumpleanos) === monthDay))
+                                        .filter(l => {
+                                            const md = extractMMDD(l.Cumpleanos);
+                                            return md && md === monthDay;
+                                        })
                                         .filter(l => !selectedContacts.some(c => c.phone === (l.Telefono || l.ID_Contacto)))
                                         .slice(0, 50 - selectedContacts.length);
                                     setSelectedContacts([...selectedContacts, ...toAdd.map(l => ({
