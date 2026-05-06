@@ -41,13 +41,13 @@ export default function Login() {
         ) : (
           <h1>{process.env.NEXT_PUBLIC_BRAND_NAME || 'Aurora'}</h1>
         )}
-        <p className="mono">Sistema Seguro de Gestión Comercial · {process.env.NEXT_PUBLIC_BRAND_NAME || 'Aurora'}</p>
+        <p className="mono">Plataforma de Ventas · {process.env.NEXT_PUBLIC_BRAND_NAME || 'Aurora'}</p>
         <form onSubmit={handleLogin}>
           <div className="fg">
-            <label>Correo electrónico Corporativo</label>
+            <label>Correo electrónico</label>
             <input 
               type="email" 
-              placeholder="agente@empresa.com" 
+              placeholder="tu@correo.com" 
               autoComplete="email" 
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -69,7 +69,7 @@ export default function Login() {
             className="btn btng btnw" 
             disabled={loading}
           >
-            {loading ? <><span className="spin"></span> Verificando…</> : 'Ingresar al Portal Seguro'}
+            {loading ? <><span className="spin"></span> Ingresando…</> : 'Ingresar'}
           </button>
         </form>
         {error && (

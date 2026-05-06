@@ -223,7 +223,7 @@ export default function DashboardLayout({ user }) {
 
       {loading ? (
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-           <p className="mono">Cargando base de datos Segura...</p>
+           <p className="mono">Cargando tus contactos...</p>
         </div>
       ) : (
         <>

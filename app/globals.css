@@ -85,28 +85,41 @@
             align-items: center;
             justify-content: center;
             background: var(--bg);
-            background-image: radial-gradient(ellipse at 15% 50%, rgba(0, 243, 255, .1) 0%, transparent 55%), radial-gradient(ellipse at 85% 20%, rgba(139, 92, 246, .1) 0%, transparent 50%);
+            background-image:
+                radial-gradient(ellipse at 10% 60%, rgba(249, 115, 22, .12) 0%, transparent 55%),
+                radial-gradient(ellipse at 90% 15%, rgba(20, 184, 166, .10) 0%, transparent 50%);
         }
 
         .lbox {
             background: var(--s1);
             border: 1px solid var(--brd);
-            border-radius: 8px;
-            padding: 40px 36px;
+            border-radius: 12px;
+            padding: 44px 38px;
             width: 100%;
-            max-width: 380px;
-            box-shadow: 0 4px 14px rgba(0, 0, 0, .05)
+            max-width: 390px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, .12);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .lbox::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #f97316, #14b8a6);
+            border-radius: 12px 12px 0 0;
         }
 
         .lbox h1 {
-            font-size: 1.9rem;
+            font-size: 2rem;
             font-weight: 800;
             margin-bottom: 4px;
             color: var(--text)
         }
 
         .lbox h1 span {
-            color: var(--navy)
+            color: #f97316
         }
 
         .lbox p {
