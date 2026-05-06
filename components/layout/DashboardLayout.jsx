@@ -93,7 +93,7 @@ export default function DashboardLayout({ user }) {
       setCfg(resCfg);
       const newLeads = resContacts.data || [];
       setLeads(newLeads);
-      
+
       // Initial WA load and auto-link trigger
       await fetchWAData();
     } catch (e) {
@@ -117,16 +117,16 @@ export default function DashboardLayout({ user }) {
           body: JSON.stringify({ action: 'threads' })
         })
       ]);
-      
+
       const dataU = await resU.json();
       const dataT = await resT.json();
-      
+
       if (dataU && !dataU.error) setUnreads(dataU);
       if (dataT && Array.isArray(dataT)) {
         setThreads(dataT);
         autoLinkThreads(dataT);
       }
-    } catch {}
+    } catch { }
   };
 
   // Periodic WA Polling
@@ -139,7 +139,7 @@ export default function DashboardLayout({ user }) {
     if (!leads.length || !currentThreads.length) return;
 
     const cleanPhoneStr = (p) => String(p || '').replace(/[\s\-\+\(\)]/g, '');
-    
+
     // 1. Create a map of suffixes to leads that DON'T have an LID yet
     const suffixMap = {};
     leads.forEach(l => {
@@ -172,9 +172,9 @@ export default function DashboardLayout({ user }) {
         console.log(`[Auto-Linker] Linking ${lead.Nombre_Persona} to ${lid}`);
         const updatedLead = { ...lead, LID: lid };
         updatedLead.Notas = (updatedLead.Notas || '') + `\n[Sistema] Vinculado automáticamente por coincidencia de número WhatsApp: ${lid}`;
-        
+
         await api('saveProfile', { perfil: updatedLead, userId: user.id });
-        
+
         // Update local state to prevent re-processing
         setLeads(prev => prev.map(l => l.ID_Contacto === lead.ID_Contacto ? updatedLead : l));
       } catch (err) {
@@ -217,29 +217,29 @@ export default function DashboardLayout({ user }) {
       {/* Marca de Agua Dinámica / DLP */}
       {enableDlp && (
         <div id="wm" style={{ display: 'block' }}>
-           {(user.correo + '     ').repeat(300)}
+          {(user.correo + '     ').repeat(300)}
         </div>
       )}
 
       {loading ? (
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-           <p className="mono">Cargando tus contactos...</p>
+          <p className="mono">Cargando tus contactos...</p>
         </div>
       ) : (
         <>
           {/* VIEWS */}
           <div style={{ display: activeTab === 'dir' ? 'flex' : 'none', flex: 1, flexDirection: 'column', overflow: 'hidden' }}>
-            <Directory 
-              leads={leads} 
-              cfg={cfg} 
-              loading={loading} 
-              refreshLeads={initApp} 
-              user={user} 
-              openDrawer={openDrawer} 
+            <Directory
+              leads={leads}
+              cfg={cfg}
+              loading={loading}
+              refreshLeads={initApp}
+              user={user}
+              openDrawer={openDrawer}
               isCensored={isCensored}
-              hideUnknowns={true} 
-              unreads={unreads} 
-              threads={threads} 
+              hideUnknowns={true}
+              unreads={unreads}
+              threads={threads}
               selectedForCampaign={selectedForCampaign}
               setSelectedForCampaign={setSelectedForCampaign}
               onGoToCampaign={() => setActiveTab('campaigns')}
@@ -247,17 +247,17 @@ export default function DashboardLayout({ user }) {
           </div>
 
           <div style={{ display: activeTab === 'unks' ? 'flex' : 'none', flex: 1, flexDirection: 'column', overflow: 'hidden' }}>
-            <Directory 
-              leads={leads} 
-              cfg={cfg} 
-              loading={loading} 
-              refreshLeads={initApp} 
-              user={user} 
-              openDrawer={openDrawer} 
+            <Directory
+              leads={leads}
+              cfg={cfg}
+              loading={loading}
+              refreshLeads={initApp}
+              user={user}
+              openDrawer={openDrawer}
               isCensored={isCensored}
-              unknownsOnly={true} 
-              unreads={unreads} 
-              threads={threads} 
+              unknownsOnly={true}
+              unreads={unreads}
+              threads={threads}
               selectedForCampaign={selectedForCampaign}
               setSelectedForCampaign={setSelectedForCampaign}
               onGoToCampaign={() => setActiveTab('campaigns')}
@@ -285,12 +285,12 @@ export default function DashboardLayout({ user }) {
       )}
 
       {/* Profile Drawer */}
-      <Drawer 
-        open={drawerOpen} 
-        onClose={closeDrawer} 
-        lead={drawerLead} 
+      <Drawer
+        open={drawerOpen}
+        onClose={closeDrawer}
+        lead={drawerLead}
         leads={leads}
-        tab={drawerTab} 
+        tab={drawerTab}
         setTab={setDrawerTab}
         cfg={cfg}
         user={user}

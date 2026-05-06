@@ -4,19 +4,25 @@ import { useState, useMemo } from 'react';
 import { api } from '@/lib/api';
 import Swal from 'sweetalert2';
 
-export default function Funnel({ leads, cfg, user, openDrawer, setLeads, unreads }) {
+export default function Funnel({ leads, cfg, user, openDrawer, setLeads, unreads, usersMap = {} }) {
   const [draggedId, setDraggedId] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [agentFilter, setAgentFilter] = useState('todos');
 
   const isManager = user.rol === 'Gerente' || user.rol === 'Administrador';
 
-  // All unique agents from leads
+  // Resolve an Agente_Asignado value (which might be an ID or already a name) to a display name
+  function resolveName(val) {
+    if (!val) return '';
+    return usersMap[val] || val; // fallback to raw value if not in map
+  }
+
+  // All unique resolved agent names from leads
   const agentOptions = useMemo(() => {
     const names = new Set();
-    leads.forEach(l => { if (l.Agente_Asignado) names.add(l.Agente_Asignado); });
+    leads.forEach(l => { if (l.Agente_Asignado) names.add(resolveName(l.Agente_Asignado)); });
     return Array.from(names).sort();
-  }, [leads]);
+  }, [leads, usersMap]);
 
   // SLA Strikes function
   function getStrikeCount(l, stage) {
@@ -82,11 +88,11 @@ export default function Funnel({ leads, cfg, user, openDrawer, setLeads, unreads
     let matchAgent = true;
     if (!isManager) {
       // Agents always see only their own
-      matchAgent = (l.Agente_Asignado || '') === user.nombre;
+      matchAgent = resolveName(l.Agente_Asignado) === user.nombre;
     } else if (agentFilter === '__sin_asignar__') {
       matchAgent = !l.Agente_Asignado;
     } else if (agentFilter !== 'todos') {
-      matchAgent = (l.Agente_Asignado || '') === agentFilter;
+      matchAgent = resolveName(l.Agente_Asignado) === agentFilter;
     }
 
     return matchSearch && matchAgent;
@@ -188,7 +194,7 @@ export default function Funnel({ leads, cfg, user, openDrawer, setLeads, unreads
                       {/* Show assigned agent on card when manager views "todos" */}
                       {isManager && agentFilter === 'todos' && l.Agente_Asignado && (
                         <div style={{ fontSize: '0.68rem', color: 'var(--muted)', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                          <span>👤</span> {l.Agente_Asignado}
+                          <span>👤</span> {resolveName(l.Agente_Asignado)}
                         </div>
                       )}
                       {isOver && (
@@ -216,7 +222,7 @@ export default function Funnel({ leads, cfg, user, openDrawer, setLeads, unreads
                 <div className="kcard fz" key={l.ID_Contacto} onClick={() => openDrawer(l)}>
                   <div className="kname" style={{ color: 'var(--muted)' }}>{l.Nombre_Persona}</div>
                   {isManager && agentFilter === 'todos' && l.Agente_Asignado && (
-                    <div style={{ fontSize: '0.68rem', color: 'var(--muted)', marginTop: '2px' }}>👤 {l.Agente_Asignado}</div>
+                    <div style={{ fontSize: '0.68rem', color: 'var(--muted)', marginTop: '2px' }}>👤 {resolveName(l.Agente_Asignado)}</div>
                   )}
                 </div>
               ))}
