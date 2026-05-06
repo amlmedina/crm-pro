@@ -11,6 +11,13 @@ export default function Drawer({ open, onClose, lead, leads, tab, setTab, cfg, u
   const [hist, setHist] = useState([]);
   const [loadingHist, setLoadingHist] = useState(false);
   const [notas, setNotas] = useState('');
+  const [usersList, setUsersList] = useState([]);
+
+  useEffect(() => {
+    if (user.rol === 'Gerente' || user.rol === 'Administrador') {
+      api('getUsuarios').then(res => setUsersList(res)).catch(() => {});
+    }
+  }, [user]);
 
   // ── WhatsApp State ──────────────────────────────────────
   const [waMessages, setWaMessages]   = useState([]);
@@ -287,7 +294,8 @@ export default function Drawer({ open, onClose, lead, leads, tab, setTab, cfg, u
           LID: lead.LID || '',
           Correo_Corp: lead.Correo_Corp || '',
           Cumpleanos: lead.Cumpleanos || '',
-          Estado_Funnel: lead.Estado_Funnel || (cfg.funnel?.[0]?.stage || '')
+          Estado_Funnel: lead.Estado_Funnel || (cfg.funnel?.[0]?.stage || ''),
+          Agente_Asignado: lead.Agente_Asignado || ''
         });
         
         const cfsData = {};
@@ -301,7 +309,8 @@ export default function Drawer({ open, onClose, lead, leads, tab, setTab, cfg, u
         // Nuevo Lead
         setF({
           Nombre_Persona: '', Telefono: '', LID: '', Correo_Corp: '',
-          Cumpleanos: '', Estado_Funnel: cfg.funnel?.[0]?.stage || ''
+          Cumpleanos: '', Estado_Funnel: cfg.funnel?.[0]?.stage || '',
+          Agente_Asignado: user.rol === 'Agente' ? user.nombre : ''
         });
         const cfsData = {};
         (cfg.camposPersonalizados || []).forEach(c => { cfsData[c.key] = ''; });
@@ -461,6 +470,15 @@ export default function Drawer({ open, onClose, lead, leads, tab, setTab, cfg, u
                 <div className="fg"><label style={{color: '#2563eb', fontWeight: '800'}}>LID (WhatsApp ID) ✨ NUEVO </label>
                   <input type="text" className="inp" value={f.LID || ''} onChange={e => setF({...f, LID: e.target.value})} />
                 </div>
+                {(user.rol === 'Gerente' || user.rol === 'Administrador') && (
+                  <div className="fg">
+                    <label>Asignado A (Agente)</label>
+                    <select className="inp" value={f.Agente_Asignado || ''} onChange={e => setF({...f, Agente_Asignado: e.target.value})}>
+                      <option value="">Sin Asignar</option>
+                      {usersList.map(u => <option key={u.id} value={u.nombre}>{u.nombre}</option>)}
+                    </select>
+                  </div>
+                )}
                 <div className="fg full">
                    <label>Correo Electrónico</label>
                    <div style={{display:'flex', gap:'6px'}}>
