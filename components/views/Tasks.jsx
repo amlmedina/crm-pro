@@ -16,7 +16,7 @@ export default function Tasks({ openDrawer }) {
         body: JSON.stringify({ action: 'list' })
       });
       const data = await res.json();
-      setTasks(data || []);
+      setTasks(Array.isArray(data) ? data : []);
     } catch {
       Swal.fire({ title: 'Error', text: 'No se pudieron cargar las tareas', icon: 'error' });
     }
