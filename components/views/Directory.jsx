@@ -169,9 +169,8 @@ export default function Directory({
                 } else {
                   if (selectedForCampaign.length >= 50) return;
                   setSelectedForCampaign([...selectedForCampaign, { 
-                    phone, 
-                    nombre: l.Nombre_Persona, 
-                    empresa: l.Nombre_Empresa 
+                    ...l, 
+                    phone // Ensure phone is present as the key identifier
                   }]);
                 }
               };

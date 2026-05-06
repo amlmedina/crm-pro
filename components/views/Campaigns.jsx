@@ -28,6 +28,20 @@ export default function Campaigns({ leads, cfg, user, openDrawer, initialSelecti
     const [newFilterKey, setNewFilterKey] = useState('');
     const [newFilterVal, setNewFilterVal] = useState('');
 
+    const availableVariables = useMemo(() => {
+        const vars = [
+            { key: 'Nombre_Persona', label: 'Nombre' },
+            { key: 'Telefono', label: 'Teléfono' },
+            { key: 'Correo_Corp', label: 'Correo' },
+            { key: 'Cumpleanos', label: 'Cumpleaños' },
+            { key: 'Agente_Asignado', label: 'Agente' }
+        ];
+        if (cfg?.camposPersonalizados) {
+            cfg.camposPersonalizados.forEach(c => vars.push({ key: c.key, label: c.label }));
+        }
+        return vars;
+    }, [cfg]);
+
     const allCols = useMemo(() => {
         const base = [
             // Estado_Funnel: options come from cfg.funnel
@@ -128,9 +142,8 @@ export default function Campaigns({ leads, cfg, user, openDrawer, initialSelecti
                 return;
             }
             setSelectedContacts([...selectedContacts, { 
-                phone, 
-                nombre: l.Nombre_Persona || 'Sin Nombre', 
-                empresa: l.Nombre_Empresa || 'Sin Empresa'
+                ...l,
+                phone
             }]);
         }
     }
@@ -352,8 +365,10 @@ export default function Campaigns({ leads, cfg, user, openDrawer, initialSelecti
                             value={bdayMessage}
                             onChange={e => setBdayMessage(e.target.value)}
                         />
-                        <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
-                            <button className="btn btngh" style={{ fontSize: '0.7rem' }} onClick={() => setBdayMessage(bdayMessage + ' {nombre}')}>+ { '{nombre}' }</button>
+                        <div style={{ display: 'flex', gap: '6px', marginTop: '6px', flexWrap: 'wrap' }}>
+                            {availableVariables.map(v => (
+                                <button key={v.key} className="btn btngh" style={{ fontSize: '0.7rem' }} onClick={() => setBdayMessage(bdayMessage + ` {${v.key}}`)}>+ { `{${v.key}}` }</button>
+                            ))}
                         </div>
                     </div>
 
@@ -501,17 +516,18 @@ export default function Campaigns({ leads, cfg, user, openDrawer, initialSelecti
                         </div>
 
                         <div>
-                            <label className="lbl">Mensaje (Usa {'{nombre}'} o {'{empresa}'} para personalizar)</label>
+                            <label className="lbl">Mensaje Personalizado</label>
                             <textarea 
                                 className="inp" 
                                 style={{ height: '150px', resize: 'none' }} 
                                 value={message} 
                                 onChange={e => setMessage(e.target.value)}
-                                placeholder="Hola {nombre}, tenemos una oferta para ti en {empresa}..."
+                                placeholder="Hola {Nombre_Persona}, tenemos una oferta especial para ti..."
                             />
-                            <div style={{ marginTop: '5px', display: 'flex', gap: '5px' }}>
-                                <button className="btn btngh" style={{ fontSize: '0.7rem' }} onClick={() => setMessage(message + ' {nombre}')}>+ { '{nombre}' }</button>
-                                <button className="btn btngh" style={{ fontSize: '0.7rem' }} onClick={() => setMessage(message + ' {empresa}')}>+ { '{empresa}' }</button>
+                            <div style={{ marginTop: '5px', display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+                                {availableVariables.map(v => (
+                                    <button key={v.key} className="btn btngh" style={{ fontSize: '0.7rem' }} onClick={() => setMessage(message + ` {${v.key}}`)}>+ { `{${v.key}}` }</button>
+                                ))}
                             </div>
                         </div>
 

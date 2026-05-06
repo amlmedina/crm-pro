@@ -244,10 +244,13 @@ async function startWhatsApp() {
             }
             const jid = phone.includes('@lid') ? phone : `${phone}@s.whatsapp.net`;
             
-            // Personalización básica
+            // Personalización dinámica de variables
             let finalMsg = campaign.message;
-            if (contact.nombre) finalMsg = finalMsg.replace(/{nombre}/gi, contact.nombre);
-            if (contact.empresa) finalMsg = finalMsg.replace(/{empresa}/gi, contact.empresa);
+            Object.keys(contact).forEach(key => {
+                if (key !== 'phone' && contact[key] !== undefined && contact[key] !== null) {
+                    finalMsg = finalMsg.replace(new RegExp(`{${key}}`, 'gi'), contact[key]);
+                }
+            });
 
             const msgOptions = { text: finalMsg.trim() };
             if (campaign.image) {
