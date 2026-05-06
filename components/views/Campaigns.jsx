@@ -6,8 +6,13 @@ import Swal from 'sweetalert2';
 export default function Campaigns({ leads, cfg, user, openDrawer, initialSelection = [], onClearSelection }) {
     const [campaigns, setCampaigns] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [view, setView] = useState(initialSelection.length > 0 ? 'create' : 'list'); // 'list', 'create', 'details'
+    const [view, setView] = useState(initialSelection.length > 0 ? 'create' : 'list'); // 'list', 'create', 'details', 'birthdays'
     const [selectedCampaign, setSelectedCampaign] = useState(null);
+
+    // Birthday scheduling state
+    const [bdayMonth, setBdayMonth] = useState((new Date().getMonth() + 1).toString().padStart(2, '0'));
+    const [bdayMessage, setBdayMessage] = useState('¡Hola {nombre}! 🎉 Hoy es tu día especial. De parte de todo el equipo, te deseamos un feliz cumpleaños. ¡Que lo disfrutes mucho!');
+    const [bdayHour, setBdayHour] = useState(10);
 
     // Form state
     const [name, setName] = useState('');
@@ -175,6 +180,69 @@ export default function Campaigns({ leads, cfg, user, openDrawer, initialSelecti
         }
     }
 
+    async function handleScheduleBirthdays() {
+        const bdayLeads = leads.filter(l => {
+            if (!l.Cumpleanos) return false;
+            return String(l.Cumpleanos).startsWith(bdayMonth + '-');
+        });
+
+        if (bdayLeads.length === 0) {
+            return Swal.fire('Sin cumpleañeros', 'No hay contactos con cumpleaños registrado en el mes seleccionado.', 'info');
+        }
+
+        const res = await Swal.fire({
+            title: `¿Programar ${bdayLeads.length} cumpleaños?`,
+            text: `Se crearán ${bdayLeads.length} campañas individuales, programadas automáticamente para el día de su cumpleaños a las ${String(bdayHour).padStart(2, '0')}:00 UTC.`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, programar',
+            cancelButtonText: 'Cancelar'
+        });
+
+        if (!res.isConfirmed) return;
+
+        let success = 0;
+        let errors = 0;
+        const currentYear = new Date().getFullYear();
+
+        Swal.fire({ title: 'Programando...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+        for (const lead of bdayLeads) {
+            const day = String(lead.Cumpleanos).split('-')[1];
+            // Format: YYYY-MM-DDTHH:00
+            const scheduledDateStr = `${currentYear}-${bdayMonth}-${day}T${String(bdayHour).padStart(2, '0')}:00`;
+            
+            const payload = {
+                name: `🎂 Cumpleaños - ${lead.Nombre_Persona || 'Contacto'}`,
+                message: bdayMessage,
+                image: null,
+                scheduledAt: scheduledDateStr,
+                contacts: [{
+                    phone: lead.Telefono || lead.ID_Contacto,
+                    nombre: lead.Nombre_Persona,
+                    empresa: lead.Nombre_Empresa
+                }],
+                createdBy: user.id
+            };
+
+            try {
+                const req = await fetch('/api/campaigns', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await req.json();
+                if (data.ok) success++; else errors++;
+            } catch {
+                errors++;
+            }
+        }
+
+        fetchCampaigns();
+        Swal.fire('¡Listo!', `Se programaron ${success} campañas exitosamente.${errors > 0 ? ` Hubo ${errors} errores.` : ''}`, 'success');
+        setView('list');
+    }
+
     async function deleteCampaign(id) {
         const res = await Swal.fire({
             title: '¿Eliminar campaña?',
@@ -228,12 +296,83 @@ export default function Campaigns({ leads, cfg, user, openDrawer, initialSelecti
         <div className="view on" style={{ display: 'flex', flexDirection: 'column', padding: '20px', gap: '20px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h2 style={{ margin: 0 }}>📣 Gestión de Campañas</h2>
-                <button className="btn btng" onClick={() => setView(view === 'list' ? 'create' : 'list')}>
-                    {view === 'list' ? '+ Nueva Campaña' : 'Volver al Historial'}
-                </button>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                    <button className="btn btng" onClick={() => setView('birthdays')} style={{ background: 'var(--yel)', color: '#000' }}>
+                        🎂 Programar Cumpleaños
+                    </button>
+                    <button className="btn btng" onClick={() => setView(view === 'list' ? 'create' : 'list')}>
+                        {view === 'list' ? '+ Nueva Campaña' : 'Volver al Historial'}
+                    </button>
+                </div>
             </div>
 
-            {view === 'list' ? (
+            {view === 'birthdays' ? (
+                <div className="card" style={{ padding: '20px', maxWidth: '800px', margin: '0 auto', width: '100%' }}>
+                    <h2 style={{ margin: '0 0 5px 0' }}>🎂 Programación Mensual de Cumpleaños</h2>
+                    <p style={{ color: 'var(--muted)', fontSize: '0.85rem', marginBottom: '20px' }}>
+                        Selecciona un mes. El sistema encontrará a todos los contactos que cumplen años ese mes y creará una campaña programada individual para cada uno, justo en su día.
+                    </p>
+
+                    <div className="fgrid">
+                        <div className="fg">
+                            <label>Mes</label>
+                            <select className="inp" value={bdayMonth} onChange={e => setBdayMonth(e.target.value)}>
+                                <option value="01">Enero</option><option value="02">Febrero</option>
+                                <option value="03">Marzo</option><option value="04">Abril</option>
+                                <option value="05">Mayo</option><option value="06">Junio</option>
+                                <option value="07">Julio</option><option value="08">Agosto</option>
+                                <option value="09">Septiembre</option><option value="10">Octubre</option>
+                                <option value="11">Noviembre</option><option value="12">Diciembre</option>
+                            </select>
+                        </div>
+                        <div className="fg">
+                            <label>Hora de Envío (UTC)</label>
+                            <select className="inp" value={bdayHour} onChange={e => setBdayHour(parseInt(e.target.value))}>
+                                {Array.from({ length: 24 }, (_, i) => (
+                                    <option key={i} value={i}>{String(i).padStart(2, '0')}:00</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div className="fg" style={{ marginTop: '15px' }}>
+                        <label>Mensaje Base</label>
+                        <textarea 
+                            className="inp" 
+                            style={{ minHeight: '100px', resize: 'vertical' }}
+                            value={bdayMessage}
+                            onChange={e => setBdayMessage(e.target.value)}
+                        />
+                        <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
+                            <button className="btn btngh" style={{ fontSize: '0.7rem' }} onClick={() => setBdayMessage(bdayMessage + ' {nombre}')}>+ { '{nombre}' }</button>
+                        </div>
+                    </div>
+
+                    <div style={{ marginTop: '20px', padding: '15px', background: 'var(--s2)', borderRadius: '8px', border: '1px solid var(--brd)' }}>
+                        <h4 style={{ margin: '0 0 10px 0' }}>Contactos que cumplen en el mes seleccionado:</h4>
+                        <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                            {leads.filter(l => l.Cumpleanos && String(l.Cumpleanos).startsWith(bdayMonth + '-')).length > 0 ? (
+                                leads.filter(l => l.Cumpleanos && String(l.Cumpleanos).startsWith(bdayMonth + '-')).map(l => (
+                                    <div key={l.ID_Contacto} style={{ fontSize: '0.8rem', padding: '4px 0', borderBottom: '1px solid var(--brd)' }}>
+                                        <strong>{l.Nombre_Persona}</strong> — Cumple el: {l.Cumpleanos}
+                                    </div>
+                                ))
+                            ) : (
+                                <div style={{ color: 'var(--muted)', fontSize: '0.8rem' }}>No hay cumpleaños registrados para este mes.</div>
+                            )}
+                        </div>
+                    </div>
+
+                    <button 
+                        className="btn btny" 
+                        style={{ width: '100%', marginTop: '20px', padding: '12px' }}
+                        onClick={handleScheduleBirthdays}
+                        disabled={leads.filter(l => l.Cumpleanos && String(l.Cumpleanos).startsWith(bdayMonth + '-')).length === 0}
+                    >
+                        🚀 Programar Cumpleaños del Mes
+                    </button>
+                </div>
+            ) : view === 'list' ? (
                 <div id="twrap" style={{ flex: 1 }}>
                     <table id="tbl">
                         <thead>
