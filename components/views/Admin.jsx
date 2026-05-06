@@ -6,6 +6,7 @@ import Swal from 'sweetalert2';
 import { THEMES } from '@/lib/themes';
 
 export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
+  const [adminTab, setAdminTab] = useState('usuarios');
   const [opcionesTomador, setOpcionesTomador] = useState('');
   const [opcionesTamano, setOpcionesTamano] = useState('');
   const [funnel, setFunnel] = useState([]);
@@ -286,7 +287,15 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
   return (
     <div className="view on" id="vadmin" style={{ maxWidth: '900px', margin: '0 auto' }}>
 
-      {/* ── WhatsApp / MiBot Config ───────────────────────────────── */}
+      {/* ── Tab Bar ─────────────────────────────────────── */}
+      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', borderBottom: '2px solid var(--brd)', marginBottom: '24px', paddingBottom: '2px' }}>
+        {[['usuarios','👥 Usuarios'],['pipeline','🔀 Pipeline'],['whatsapp','💬 WhatsApp'],['privacidad','🔒 Privacidad'],['apariencia','🎨 Apariencia']].map(([id, label]) => (
+          <button key={id} onClick={() => setAdminTab(id)} style={{ padding: '8px 16px', borderRadius: '8px 8px 0 0', border: 'none', cursor: 'pointer', fontWeight: adminTab===id?700:500, fontSize: '0.82rem', background: adminTab===id?'var(--navy)':'var(--s2)', color: adminTab===id?'#fff':'var(--muted)', transition: 'all .15s' }}>{label}</button>
+        ))}
+      </div>
+
+      {/* ══ WHATSAPP ════════════════════════════════════ */}
+      {adminTab === 'whatsapp' && (
       <div className="acard" style={{ borderLeft: '4px solid #25d366' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -371,7 +380,10 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
         )}
       </div>
 
-      {/* DLP Security Toggle - Salesforce Style */}
+      )} {/* end whatsapp acard */}
+
+      {/* ══ PRIVACIDAD ═════════════════════════════════ */}
+      {adminTab === 'privacidad' && (
       <div className="acard" style={{ borderLeft: '4px solid var(--blue)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
@@ -414,7 +426,10 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
           </div>
         </div>
       </div>
+      )} {/* end privacidad */}
 
+      {/* ══ USUARIOS ═════════════════════════════════ */}
+      {adminTab === 'usuarios' && (
       <div className="acard">
         <h3>Gestión de Usuarios</h3>
         <div className="fgrid">
@@ -456,6 +471,10 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
           </table>
         )}
       </div>
+      )} {/* end usuarios acard */}
+
+      {/* ══ PIPELINE ═════════════════════════════════════ */}
+      {adminTab === 'pipeline' && <>
 
       <div className="acard">
         <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px'}}>
@@ -504,6 +523,10 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
           ))}
         </div>
       </div>
+      </> /* end pipeline */}
+
+      {/* ══ WHATSAPP PREDEFS + BDAY ═══════════════════════════ */}
+      {adminTab === 'whatsapp' && <>
 
       <div className="acard">
         <h3>Respuestas Rápidas (WhatsApp)</h3>
@@ -548,8 +571,9 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
           >+ Agregar Respuesta</button>
         </div>
       </div>
+      </> /* end whatsapp predefs */}
 
-      {/* ── Mensaje Default Cumpleaños ─────────────────────── */}
+      {adminTab === 'whatsapp' && (
       <div className="acard">
         <h3>🎂 Mensaje por Defecto de Cumpleaños</h3>
         <p style={{ fontSize: '0.72rem', color: 'var(--muted)', marginBottom: '10px' }}>Este mensaje se pre-cargará automáticamente al programar una campaña de cumpleaños. Usa variables como <code>{'{Nombre_Persona}'}</code> para personalizar.</p>
@@ -561,7 +585,9 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
           placeholder="¡Hola {Nombre_Persona}! 🎉 Hoy es tu día especial..."
         />
       </div>
-      {/* ── Tema Visual ───────────────────────────────────── */}
+      )} {/* end bday */}
+
+      {adminTab === 'apariencia' && (
       <div className="acard" style={{ borderLeft: '4px solid var(--navy)' }}>
         <h3 style={{ marginBottom: '6px', fontSize: '0.86rem' }}>Tema Visual</h3>
         <p style={{ fontSize: '0.73rem', color: 'var(--muted)', marginBottom: '16px' }}>Selecciona el estilo visual de la plataforma. El cambio es instantáneo y se guarda en tu navegador.</p>
@@ -594,9 +620,14 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
         </div>
       </div>
 
+      )} {/* end apariencia */}
+
+      {/* Save button: visible on pipeline, whatsapp, privacidad tabs */}
+      {['pipeline','whatsapp','privacidad'].includes(adminTab) && (
       <button className="btn btny btnw" style={{marginBottom:'40px', padding:'12px'}} onClick={doSaveConfig}>
-        💾 Guardar Configuración Global
+        💾 Guardar Configuración
       </button>
+      )}
 
     </div>
   );
