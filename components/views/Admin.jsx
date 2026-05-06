@@ -13,6 +13,7 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
   const [enableDlp, setEnableDlp] = useState(true);
   const [censoredFields, setCensoredFields] = useState([]);
   const [waPredefs, setWaPredefs] = useState([]);
+  const [birthdayCampaign, setBirthdayCampaign] = useState({ enabled: false, message: '', hour: 10 });
 
   // Users state
   const [users, setUsers] = useState([]);
@@ -42,6 +43,7 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
       ];
       setWaPredefs(loadedPredefs.map(p => typeof p === 'string' ? { title: p.substring(0, 15), text: p } : p));
       setCensoredFields(cfg.censoredFields || []);
+      setBirthdayCampaign(cfg.birthdayCampaign || { enabled: false, message: '', hour: 10 });
     }
     loadUsers();
     loadWaStatus();
@@ -116,6 +118,7 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
       camposPersonalizados: campos,
       enableDlp: enableDlp,
       censoredFields: censoredFields,
+      birthdayCampaign: birthdayCampaign,
       wa_predefs: waPredefs.filter(p => p.text?.trim() || p.title?.trim())
     };
 
@@ -474,6 +477,50 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
             style={{ width: 'fit-content' }}
           >+ Agregar Respuesta</button>
         </div>
+      </div>
+
+      {/* ── Campaña Cumpleañera Automática ───────────────────── */}
+      <div className="acard" style={{ borderLeft: '4px solid #f59e0b' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
+          <div>
+            <h3 style={{ margin: '0 0 4px 0', fontSize: '0.86rem' }}>🎂 Campaña Cumpleañera Automática</h3>
+            <p style={{ fontSize: '0.73rem', color: 'var(--muted)', margin: 0 }}>El sistema detectará los contactos que cumplen años cada día y les enviará un mensaje de WhatsApp automáticamente. Requiere que el campo <strong>Cumpleaños</strong> esté lleno en el perfil del contacto (formato MM-DD, ej: 05-20).</p>
+          </div>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem', fontWeight: 700, color: birthdayCampaign.enabled ? 'var(--green)' : 'var(--muted)', flexShrink: 0, marginLeft: '16px' }}>
+            {birthdayCampaign.enabled ? 'Activa' : 'Apagada'}
+            <input type="checkbox" checked={birthdayCampaign.enabled} onChange={e => setBirthdayCampaign({...birthdayCampaign, enabled: e.target.checked})} style={{ transform: 'scale(1.2)', accentColor: 'var(--yel)' }} />
+          </label>
+        </div>
+
+        <div className="fgrid">
+          <div className="fg full">
+            <label>Mensaje de Felicitación</label>
+            <textarea
+              value={birthdayCampaign.message}
+              onChange={e => setBirthdayCampaign({...birthdayCampaign, message: e.target.value})}
+              placeholder="¡Hola {nombre}! 🎉 Hoy es tu día especial. De parte de todo el equipo de Galaxy Bikes, te deseamos un feliz cumpleaños. ¡Que lo disfrutes mucho!"
+              style={{ minHeight: '100px', padding: '10px', borderRadius: '8px', border: '1px solid var(--brd)', background: 'var(--s2)', color: 'var(--text)', fontFamily: 'inherit', resize: 'vertical', width: '100%' }}
+            />
+            <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
+              <button className="btn btngh" style={{ fontSize: '0.7rem', padding: '3px 8px' }} onClick={() => setBirthdayCampaign({...birthdayCampaign, message: birthdayCampaign.message + '{nombre}'})}>+ {'{nombre}'}</button>
+            </div>
+          </div>
+          <div className="fg">
+            <label>Hora de Envío</label>
+            <select value={birthdayCampaign.hour} onChange={e => setBirthdayCampaign({...birthdayCampaign, hour: parseInt(e.target.value)})} style={{ padding: '8px', borderRadius: '8px', border: '1px solid var(--brd)', background: 'var(--s2)', color: 'var(--text)' }}>
+              {Array.from({ length: 24 }, (_, i) => (
+                <option key={i} value={i}>{String(i).padStart(2, '0')}:00</option>
+              ))}
+            </select>
+            <p style={{ fontSize: '0.68rem', color: 'var(--muted)', margin: '6px 0 0 0' }}>Hora del servidor (UTC). Ajusta según tu zona horaria.</p>
+          </div>
+        </div>
+
+        {birthdayCampaign.enabled && (
+          <div style={{ marginTop: '10px', padding: '10px 14px', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: '8px', fontSize: '0.75rem', color: 'var(--yel)' }}>
+            ⚡ Activa. El servidor revisará cada día a las <strong>{String(birthdayCampaign.hour).padStart(2,'0')}:00</strong> si hay cumpleñeros y les enviará el mensaje. Asegúrate de guardar la configuración.
+          </div>
+        )}
       </div>
 
       {/* ── Tema Visual ───────────────────────────────────── */}

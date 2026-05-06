@@ -396,6 +396,23 @@ export default function Campaigns({ leads, cfg, user, openDrawer, initialSelecti
                                 className="btn btngh"
                                 style={{ fontSize: '0.7rem', padding: '3px 8px' }}
                                 onClick={() => {
+                                    const today = new Date();
+                                    const monthDay = `${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+                                    const toAdd = filteredLeads
+                                        .filter(l => l.Cumpleanos && (String(l.Cumpleanos).endsWith(monthDay) || String(l.Cumpleanos) === monthDay))
+                                        .filter(l => !selectedContacts.some(c => c.phone === (l.Telefono || l.ID_Contacto)))
+                                        .slice(0, 50 - selectedContacts.length);
+                                    setSelectedContacts([...selectedContacts, ...toAdd.map(l => ({
+                                        phone: l.Telefono || l.ID_Contacto,
+                                        nombre: l.Nombre_Persona,
+                                        empresa: l.Nombre_Empresa
+                                    }))]);
+                                }}
+                            >🎂 Cumpleañeros Hoy</button>
+                            <button
+                                className="btn btngh"
+                                style={{ fontSize: '0.7rem', padding: '3px 8px' }}
+                                onClick={() => {
                                     const toAdd = filteredLeads
                                         .filter(l => !selectedContacts.some(c => c.phone === (l.Telefono || l.ID_Contacto)))
                                         .slice(0, 50 - selectedContacts.length);

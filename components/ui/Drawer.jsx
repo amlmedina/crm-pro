@@ -292,6 +292,7 @@ export default function Drawer({ open, onClose, lead, leads, tab, setTab, cfg, u
           Tamano_Org: lead.Tamano_Org || '',
           Num_Empleados: lead.Num_Empleados || '',
           Sitio_Web: lead.Sitio_Web || '',
+          Cumpleanos: lead.Cumpleanos || '',
           Direccion: lead.Direccion || '',
           Presupuesto: lead.Presupuesto || '',
           Estado_Funnel: lead.Estado_Funnel || (cfg.funnel?.[0]?.stage || '')
@@ -309,7 +310,7 @@ export default function Drawer({ open, onClose, lead, leads, tab, setTab, cfg, u
         setF({
           Nombre_Persona: '', Nombre_Empresa: '', Puesto: '', Tomador_Decision: '',
           Telefono: '', LID: '', Correo_Corp: '', Tamano_Org: '', Num_Empleados: '',
-          Sitio_Web: '', Direccion: '', Presupuesto: '', Estado_Funnel: cfg.funnel?.[0]?.stage || ''
+          Sitio_Web: '', Cumpleanos: '', Direccion: '', Presupuesto: '', Estado_Funnel: cfg.funnel?.[0]?.stage || ''
         });
         const cfsData = {};
         (cfg.camposPersonalizados || []).forEach(c => { cfsData[c.key] = ''; });
@@ -457,6 +458,9 @@ export default function Drawer({ open, onClose, lead, leads, tab, setTab, cfg, u
                 </div>
                 <div className="fg"><label>Teléfono</label>
                   {(isCensored && isCensored('Telefono') && lead) ? <input type="text" className="inp" value="••••••••••" disabled /> : <input type="tel" className="inp" value={f.Telefono || ''} onChange={e => setF({...f, Telefono: e.target.value})} />}
+                </div>
+                <div className="fg"><label>🎂 Cumpleaños (MM-DD)</label>
+                  <input type="text" className="inp" placeholder="05-20" maxLength={5} value={f.Cumpleanos || ''} onChange={e => setF({...f, Cumpleanos: e.target.value})} />
                 </div>
                 <div className="fg"><label style={{color: '#2563eb', fontWeight: '800'}}>LID (WhatsApp ID) ✨ NUEVO </label>
                   <input type="text" className="inp" value={f.LID || ''} onChange={e => setF({...f, LID: e.target.value})} />
