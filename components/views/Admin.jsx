@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react';
 import { api } from '@/lib/api';
 import Swal from 'sweetalert2';
+import { THEMES } from '@/lib/themes';
 
-export default function Admin({ cfg, setCfg }) {
+export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
   const [opcionesTomador, setOpcionesTomador] = useState('');
   const [opcionesTamano, setOpcionesTamano] = useState('');
   const [funnel, setFunnel] = useState([]);
@@ -472,6 +473,39 @@ export default function Admin({ cfg, setCfg }) {
             onClick={() => setWaPredefs([...waPredefs, { title: '', text: '' }])}
             style={{ width: 'fit-content' }}
           >+ Agregar Respuesta</button>
+        </div>
+      </div>
+
+      {/* ── Tema Visual ───────────────────────────────────── */}
+      <div className="acard" style={{ borderLeft: '4px solid var(--navy)' }}>
+        <h3 style={{ marginBottom: '6px', fontSize: '0.86rem' }}>Tema Visual</h3>
+        <p style={{ fontSize: '0.73rem', color: 'var(--muted)', marginBottom: '16px' }}>Selecciona el estilo visual de la plataforma. El cambio es instantáneo y se guarda en tu navegador.</p>
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+          {Object.values(THEMES).map(t => (
+            <button
+              key={t.id}
+              onClick={() => changeTheme(t.id)}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '14px 18px',
+                borderRadius: '12px',
+                border: currentTheme === t.id ? `2px solid ${t.preview}` : '2px solid var(--brd)',
+                background: currentTheme === t.id ? `${t.preview}18` : 'var(--s2)',
+                cursor: 'pointer',
+                transition: 'all .2s',
+                boxShadow: currentTheme === t.id ? `0 0 12px ${t.preview}44` : 'none',
+                minWidth: '90px'
+              }}
+            >
+              <div style={{ width: 36, height: 36, borderRadius: '50%', background: t.preview, boxShadow: `0 2px 8px ${t.preview}66` }} />
+              <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text)' }}>{t.name}</span>
+              <span style={{ fontSize: '0.65rem', color: 'var(--muted)', textAlign: 'center' }}>{t.description}</span>
+              {currentTheme === t.id && <span style={{ fontSize: '0.65rem', color: t.preview, fontWeight: 800 }}>✓ Activo</span>}
+            </button>
+          ))}
         </div>
       </div>
 

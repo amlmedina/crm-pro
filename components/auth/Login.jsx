@@ -39,9 +39,9 @@ export default function Login() {
         {process.env.NEXT_PUBLIC_BRAND_LOGO ? (
           <img src={process.env.NEXT_PUBLIC_BRAND_LOGO} alt="Logo" style={{ height: '48px', marginBottom: '10px', objectFit: 'contain' }} />
         ) : (
-          <h1>{process.env.NEXT_PUBLIC_BRAND_NAME || 'CRM'}<span>{process.env.NEXT_PUBLIC_BRAND_NAME ? '' : 'Pro'}</span></h1>
+          <h1>{process.env.NEXT_PUBLIC_BRAND_NAME || 'Aurora'}</h1>
         )}
-        <p className="mono">Sistema de Seguridad Estricta · {process.env.NEXT_PUBLIC_BRAND_NAME || 'Palmer ISO 27001'}</p>
+        <p className="mono">Sistema Seguro de Gestión Comercial · {process.env.NEXT_PUBLIC_BRAND_NAME || 'Aurora'}</p>
         <form onSubmit={handleLogin}>
           <div className="fg">
             <label>Correo electrónico Corporativo</label>

@@ -14,8 +14,8 @@ const ibmPlexMono = IBM_Plex_Mono({
 
 export async function generateMetadata() {
   return {
-    title: process.env.NEXT_PUBLIC_BRAND_NAME || "Galaxy Bikes CRM",
-    description: "Sistema interno de gestión comercial (ISO 27001)",
+    title: process.env.NEXT_PUBLIC_BRAND_NAME || "Aurora",
+    description: "Aurora — Sistema de Gestión Comercial",
   };
 }
 

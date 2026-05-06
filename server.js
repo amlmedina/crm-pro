@@ -1,5 +1,5 @@
 /**
- * server.js — CRM Pro Custom Server
+ * server.js — Aurora Custom Server
  * Motor de WhatsApp (Baileys) + Next.js
  */
 
@@ -302,7 +302,7 @@ async function startWhatsApp() {
 
 // ── Arranque principal ────────────────────────────────────────────────────────
 async function main() {
-  console.log(`--- CRM Pro Boot ${SERVER_VERSION} ---`);
+  console.log(`--- Aurora Boot ${SERVER_VERSION} ---`);
   ensureDataDirs();
   console.log(`[System] BASE_STORAGE: ${BASE_STORAGE}`);
 
@@ -322,7 +322,7 @@ async function main() {
   createServer((req, res) => {
     handle(req, res, parse(req.url, true));
   }).listen(port, '0.0.0.0', () => {
-    console.log(`\n🚀 CRM Pro ONLINE en puerto ${port}\n`);
+    console.log(`\n🚀 Aurora ONLINE en puerto ${port}\n`);
   });
 }
 

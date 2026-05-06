@@ -194,7 +194,7 @@ export default function DashboardLayout({ user }) {
         {process.env.NEXT_PUBLIC_BRAND_LOGO ? (
           <img src={process.env.NEXT_PUBLIC_BRAND_LOGO} alt="Logo" style={{ height: '32px', objectFit: 'contain' }} />
         ) : (
-          <div className="logo">{process.env.NEXT_PUBLIC_BRAND_NAME || 'CRM'}<span>{process.env.NEXT_PUBLIC_BRAND_NAME ? '' : 'Pro'}</span></div>
+          <div className="logo">{process.env.NEXT_PUBLIC_BRAND_NAME || 'Aurora'}</div>
         )}
         <div className="tabs">
           <button className={`tab ${activeTab === 'dir' ? 'on' : ''}`} onClick={() => setActiveTab('dir')}>Directorio</button>
@@ -207,28 +207,6 @@ export default function DashboardLayout({ user }) {
           )}
         </div>
         <div id="nuser">
-          {/* Theme Picker */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginRight: '12px' }}>
-            {Object.values(THEMES).map(t => (
-              <button
-                key={t.id}
-                title={`${t.name} — ${t.description}`}
-                onClick={() => changeTheme(t.id)}
-                style={{
-                  width: '18px', height: '18px',
-                  borderRadius: '50%',
-                  background: t.preview,
-                  border: currentTheme === t.id ? '2px solid var(--text)' : '2px solid transparent',
-                  cursor: 'pointer',
-                  padding: 0,
-                  boxShadow: currentTheme === t.id ? `0 0 0 2px ${t.preview}55` : 'none',
-                  transform: currentTheme === t.id ? 'scale(1.2)' : 'scale(1)',
-                  transition: 'all .2s',
-                  flexShrink: 0
-                }}
-              />
-            ))}
-          </div>
           <span style={{ fontWeight: 700, color: 'var(--text)', marginRight: '4px' }}>{user.nombre}</span> · {user.rol}
           <button onClick={handleLogout} style={{ marginLeft: '12px', padding: '4px 8px', background: 'var(--s2)', border: '1px solid var(--brd)', borderRadius: '4px', color: 'var(--danger)', cursor: 'pointer', fontSize: '0.7rem', fontWeight: 700 }}>
             SALIR
@@ -300,7 +278,7 @@ export default function DashboardLayout({ user }) {
 
           {user.rol === 'Gerente' && (
             <div style={{ display: activeTab === 'admin' ? 'flex' : 'none', flex: 1, overflowY: 'auto' }}>
-              <Admin cfg={cfg} setCfg={setCfg} />
+              <Admin cfg={cfg} setCfg={setCfg} currentTheme={currentTheme} changeTheme={changeTheme} />
             </div>
           )}
         </>
