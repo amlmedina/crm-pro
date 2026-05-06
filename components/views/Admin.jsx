@@ -431,7 +431,25 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
       {/* ══ USUARIOS ═════════════════════════════════ */}
       {adminTab === 'usuarios' && (
       <div className="acard">
-        <h3>Gestión de Usuarios</h3>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+          <h3 style={{ margin: 0 }}>Gestión de Usuarios</h3>
+          <button
+            className="btn btngh"
+            style={{ fontSize: '0.72rem', padding: '4px 10px' }}
+            onClick={async () => {
+              try {
+                const res = await api('getUsuarios');
+                Swal.fire({
+                  title: '🔍 Estructura de Usuarios (API)',
+                  html: `<pre style="text-align:left;font-size:0.7rem;overflow:auto;max-height:300px">${JSON.stringify(res?.slice?.(0,3), null, 2)}</pre>`,
+                  width: 700
+                });
+              } catch(e) {
+                Swal.fire('Error', String(e), 'error');
+              }
+            }}
+          >🔍 Ver estructura API</button>
+        </div>
         <div className="fgrid">
           <div className="fg"><label>Nombre Completo</label><input type="text" value={uForm.nombre} onChange={e=>setUform({...uForm, nombre: e.target.value})} /></div>
           <div className="fg"><label>Correo</label><input type="email" value={uForm.correo} onChange={e=>setUform({...uForm, correo: e.target.value})} /></div>

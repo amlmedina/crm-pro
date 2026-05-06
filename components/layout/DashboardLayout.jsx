@@ -61,8 +61,11 @@ export default function DashboardLayout({ user }) {
   useEffect(() => {
     if (!enableDlp) return;
 
-    const disableCopy = (e) => e.preventDefault();
+    const isManager = user.rol === 'Gerente' || user.rol === 'Administrador';
+
+    const disableCopy = (e) => { if (!isManager) e.preventDefault(); };
     const disableKeys = (e) => {
+      if (isManager) return; // managers always have full access
       if (e.ctrlKey && 'cups'.includes(e.key.toLowerCase())) e.preventDefault();
       if (e.key === 'F12') e.preventDefault();
     };
