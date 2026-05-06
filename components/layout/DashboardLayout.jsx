@@ -98,16 +98,20 @@ export default function DashboardLayout({ user }) {
       // Build a map of every user identifier -> nombre for resolving Agente_Asignado
       try {
         const usersRes = await api('getUsuarios');
+        console.log('[usersMap] raw:', JSON.stringify(usersRes?.slice?.(0,5)));
         const map = {};
+
+        // Always seed with the current session user first
+        if (user?.id)     map[String(user.id)]     = user.nombre;
+        if (user?.nombre) map[user.nombre]          = user.nombre;
+
         (usersRes || []).forEach(u => {
-          // GAS may return keys with original sheet casing (ID_Usuario, Nombre)
-          // or lowercased (id, nombre) — handle both
           const id     = u.ID_Usuario ?? u.id_usuario ?? u.id;
           const nombre = u.Nombre     ?? u.nombre;
           const correo = u.Correo     ?? u.correo;
 
-          if (id     !== undefined && id !== null) map[String(id)] = nombre;
-          if (nombre) map[nombre] = nombre; // passthrough
+          if (id !== undefined && id !== null) map[String(id)] = nombre;
+          if (nombre) map[nombre] = nombre;
           if (correo) {
             map[correo] = nombre;
             const prefix = correo.split('@')[0];
@@ -115,9 +119,9 @@ export default function DashboardLayout({ user }) {
             if (prefix) map[prefix.toUpperCase()] = nombre;
           }
         });
+        console.log('[usersMap] keys:', Object.keys(map));
         setUsersMap(map);
-      } catch {}
-
+      } catch (e) { console.error('[usersMap] error:', e); }
       // Initial WA load and auto-link trigger
       await fetchWAData();
     } catch (e) {
