@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from 'react';
 
 export default function Directory({ 
   leads, cfg, user, openDrawer, hideUnknowns, unknownsOnly, unreads, threads,
-  selectedForCampaign = [], setSelectedForCampaign, onGoToCampaign 
+  selectedForCampaign = [], setSelectedForCampaign, onGoToCampaign, isCensored
 }) {
   const [q, setQ] = useState('');
   const [cpOpen, setCpOpen] = useState(false);
@@ -181,7 +181,11 @@ export default function Directory({
               return (
               <tr key={l.ID_Contacto} onClick={() => openDrawer(l)} style={{ background: isSelected ? 'rgba(var(--accent-rgb), 0.05)' : '' }}>
                 {allCols.filter(c => visCols.includes(c.key)).map(c => {
-                  const val = l[c.key];
+                  let val = l[c.key];
+                  if (isCensored && isCensored(c.key)) {
+                    val = val ? '••••••••••' : '';
+                  }
+
                   if (c.key === 'Estado_Funnel') return <td key={c.key}>{getBadge(val)}</td>;
                   if (c.key === 'Nombre_Persona') {
                     const phoneSuffix = String(l.Telefono || '').replace(/[\s\-\+\(\)]/g, '').slice(-10);

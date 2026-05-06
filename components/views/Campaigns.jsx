@@ -25,13 +25,23 @@ export default function Campaigns({ leads, cfg, user, openDrawer, initialSelecti
 
     const allCols = useMemo(() => {
         const base = [
-            { key: 'Estado_Funnel', label: 'Etapa Funnel' },
-            { key: 'Nombre_Persona', label: 'Nombre' },
-            { key: 'Nombre_Empresa', label: 'Empresa' },
-            { key: 'Puesto', label: 'Puesto' }
+            // Estado_Funnel: options come from cfg.funnel
+            { key: 'Estado_Funnel', label: 'Etapa Funnel', options: (cfg?.funnel || []).map(f => f.stage).filter(Boolean) },
+            { key: 'Nombre_Persona', label: 'Nombre', options: null },
+            { key: 'Nombre_Empresa', label: 'Empresa', options: null },
+            { key: 'Puesto', label: 'Puesto', options: null },
+            { key: 'Tomador_Decision', label: 'Decisor', options: cfg?.opcionesTomador || null },
+            { key: 'Tamano_Org', label: 'Tamaño Org.', options: cfg?.opcionesTamano || null },
         ];
         if (cfg?.camposPersonalizados) {
-            cfg.camposPersonalizados.forEach(c => base.push({ key: c.key, label: c.label }));
+            cfg.camposPersonalizados.forEach(c => base.push({
+                key: c.key,
+                label: c.label,
+                // For select-type custom fields, expose their options
+                options: (c.tipo === 'select' || c.tipo === 'bool')
+                    ? (c.tipo === 'bool' ? ['Sí', 'No'] : (c.opciones || []))
+                    : null
+            }));
         }
         return base;
     }, [cfg]);
@@ -395,16 +405,26 @@ export default function Campaigns({ leads, cfg, user, openDrawer, initialSelecti
                                     </div>
                                 )}
                                 <div style={{ display: 'flex', gap: '5px', flexDirection: 'column' }}>
-                                    <select className="inp" style={{ fontSize: '0.8rem', padding: '4px 8px' }} value={newFilterKey} onChange={e => setNewFilterKey(e.target.value)}>
+                                    <select className="inp" style={{ fontSize: '0.8rem', padding: '4px 8px' }} value={newFilterKey} onChange={e => { setNewFilterKey(e.target.value); setNewFilterVal(''); }}>
                                         <option value="">Añadir filtro por...</option>
                                         {allCols.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
                                     </select>
-                                    {newFilterKey && (
-                                        <div style={{ display: 'flex', gap: '5px' }}>
-                                            <input type="text" className="inp" style={{ fontSize: '0.8rem', padding: '4px 8px' }} placeholder="Valor..." value={newFilterVal} onChange={e => setNewFilterVal(e.target.value)} onKeyDown={e => e.key === 'Enter' && addFilter()} />
-                                            <button className="btn btng" style={{ fontSize: '0.8rem', padding: '4px 10px' }} onClick={addFilter}>Add</button>
-                                        </div>
-                                    )}
+                                    {newFilterKey && (() => {
+                                        const col = allCols.find(c => c.key === newFilterKey);
+                                        return (
+                                            <div style={{ display: 'flex', gap: '5px' }}>
+                                                {col?.options?.length > 0 ? (
+                                                    <select className="inp" style={{ flex: 1, fontSize: '0.8rem', padding: '4px 8px' }} value={newFilterVal} onChange={e => setNewFilterVal(e.target.value)}>
+                                                        <option value="">Seleccionar...</option>
+                                                        {col.options.map(o => <option key={o} value={o}>{o}</option>)}
+                                                    </select>
+                                                ) : (
+                                                    <input type="text" className="inp" style={{ flex: 1, fontSize: '0.8rem', padding: '4px 8px' }} placeholder="Valor..." value={newFilterVal} onChange={e => setNewFilterVal(e.target.value)} onKeyDown={e => e.key === 'Enter' && addFilter()} />
+                                                )}
+                                                <button className="btn btng" style={{ fontSize: '0.8rem', padding: '4px 10px' }} onClick={addFilter}>Add</button>
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
                             </div>
                         )}

@@ -37,6 +37,12 @@ export default function DashboardLayout({ user }) {
   // Parse DLP config safely, default to true unless explicitly false in payload
   const enableDlp = cfg.enableDlp !== false;
 
+  // Masking Utility
+  const isCensored = (key) => {
+    if (user.rol === 'Administrador' || user.rol === 'Gerente') return false;
+    return cfg?.censoredFields?.includes(key);
+  };
+
   // DLP (Data Loss Prevention) Effect driven by config
   useEffect(() => {
     if (!enableDlp) return;
@@ -217,6 +223,7 @@ export default function DashboardLayout({ user }) {
               refreshLeads={initApp} 
               user={user} 
               openDrawer={openDrawer} 
+              isCensored={isCensored}
               hideUnknowns={true} 
               unreads={unreads} 
               threads={threads} 
@@ -234,6 +241,7 @@ export default function DashboardLayout({ user }) {
               refreshLeads={initApp} 
               user={user} 
               openDrawer={openDrawer} 
+              isCensored={isCensored}
               unknownsOnly={true} 
               unreads={unreads} 
               threads={threads} 
@@ -244,7 +252,7 @@ export default function DashboardLayout({ user }) {
           </div>
 
           <div style={{ display: activeTab === 'funnel' ? 'block' : 'none', flex: 1, overflowY: 'auto' }}>
-            <Funnel leads={leads} setLeads={setLeads} cfg={cfg} loading={loading} refreshLeads={initApp} openDrawer={openDrawer} user={user} unreads={unreads} />
+            <Funnel leads={leads} setLeads={setLeads} cfg={cfg} loading={loading} refreshLeads={initApp} openDrawer={openDrawer} user={user} unreads={unreads} isCensored={isCensored} />
           </div>
 
           <div style={{ display: activeTab === 'tasks' ? 'flex' : 'none', flex: 1, overflow: 'hidden' }}>
@@ -252,7 +260,7 @@ export default function DashboardLayout({ user }) {
           </div>
 
           <div style={{ display: activeTab === 'campaigns' ? 'flex' : 'none', flex: 1, overflow: 'hidden' }}>
-            <Campaigns leads={leads} cfg={cfg} user={user} openDrawer={openDrawer} initialSelection={selectedForCampaign} onClearSelection={() => setSelectedForCampaign([])} />
+            <Campaigns leads={leads} cfg={cfg} user={user} openDrawer={openDrawer} isCensored={isCensored} initialSelection={selectedForCampaign} onClearSelection={() => setSelectedForCampaign([])} />
           </div>
 
           {user.rol === 'Gerente' && (
@@ -274,6 +282,7 @@ export default function DashboardLayout({ user }) {
         cfg={cfg}
         user={user}
         refreshLeads={initApp}
+        isCensored={isCensored}
       />
     </div>
   );

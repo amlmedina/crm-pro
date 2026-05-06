@@ -10,6 +10,7 @@ export default function Admin({ cfg, setCfg }) {
   const [funnel, setFunnel] = useState([]);
   const [campos, setCampos] = useState([]);
   const [enableDlp, setEnableDlp] = useState(true);
+  const [censoredFields, setCensoredFields] = useState([]);
   const [waPredefs, setWaPredefs] = useState([]);
 
   // Users state
@@ -39,6 +40,7 @@ export default function Admin({ cfg, setCfg }) {
         {title: "Despedida", text: "¡Gracias por tu interés!"}
       ];
       setWaPredefs(loadedPredefs.map(p => typeof p === 'string' ? { title: p.substring(0, 15), text: p } : p));
+      setCensoredFields(cfg.censoredFields || []);
     }
     loadUsers();
     loadWaStatus();
@@ -112,6 +114,7 @@ export default function Admin({ cfg, setCfg }) {
       opcionesTamano: opcionesTamano.split(',').map(s => s.trim()).filter(Boolean),
       camposPersonalizados: campos,
       enableDlp: enableDlp,
+      censoredFields: censoredFields,
       wa_predefs: waPredefs.filter(p => p.text?.trim() || p.title?.trim())
     };
 
@@ -301,16 +304,46 @@ export default function Admin({ cfg, setCfg }) {
       </div>
 
       {/* DLP Security Toggle - Salesforce Style */}
-      <div className="acard" style={{ borderLeft: '4px solid var(--blue)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-           <h3 style={{ marginBottom: '4px', fontSize: '0.86rem', color: 'var(--text)' }}>Protección Antifuga de Datos (DLP)</h3>
-           <p style={{ fontSize: '0.75rem', color: 'var(--muted)', margin: 0 }}>Habilita la marca de agua dinámica y el bloqueo anticopia para todos los agentes.</p>
+      <div className="acard" style={{ borderLeft: '4px solid var(--blue)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+             <h3 style={{ marginBottom: '4px', fontSize: '0.86rem', color: 'var(--text)' }}>Protección Antifuga de Datos (DLP)</h3>
+             <p style={{ fontSize: '0.75rem', color: 'var(--muted)', margin: 0 }}>Habilita la marca de agua dinámica y el bloqueo anticopia para todos los agentes.</p>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <label className="switch" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.8rem', fontWeight: 700, color: enableDlp ? 'var(--green)' : 'var(--muted)' }}>
+              {enableDlp ? 'Activado' : 'Apagado'}
+              <input type="checkbox" checked={enableDlp} onChange={e => setEnableDlp(e.target.checked)} style={{ transform: 'scale(1.2)', cursor: 'pointer', accentColor: 'var(--navy)' }} />
+            </label>
+          </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <label className="switch" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.8rem', fontWeight: 700, color: enableDlp ? 'var(--green)' : 'var(--muted)' }}>
-            {enableDlp ? 'Activado' : 'Apagado'}
-            <input type="checkbox" checked={enableDlp} onChange={e => setEnableDlp(e.target.checked)} style={{ transform: 'scale(1.2)', cursor: 'pointer', accentColor: 'var(--navy)' }} />
-          </label>
+
+        <div style={{ borderTop: '1px solid var(--brd)', paddingTop: '15px' }}>
+          <h4 style={{ margin: '0 0 10px 0', fontSize: '0.8rem' }}>Censura de Campos (Ocultar a Agentes)</h4>
+          <p style={{ fontSize: '0.72rem', color: 'var(--muted)', marginBottom: '15px' }}>Los campos seleccionados se mostrarán como •••••••••• para los asesores una vez que el contacto ha sido creado, evitando fugas de base de datos.</p>
+          
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px' }}>
+            {[
+              { key: 'Telefono', label: 'Teléfono' },
+              { key: 'Correo_Corp', label: 'Correo' },
+              { key: 'Nombre_Persona', label: 'Nombre' },
+              { key: 'Nombre_Empresa', label: 'Empresa' },
+              ...(campos || []).map(c => ({ key: c.key, label: c.label }))
+            ].map(f => (
+              <label key={f.key} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', color: 'var(--text)', cursor: 'pointer' }}>
+                <input 
+                  type="checkbox" 
+                  checked={censoredFields.includes(f.key)}
+                  onChange={(e) => {
+                    if (e.target.checked) setCensoredFields([...censoredFields, f.key]);
+                    else setCensoredFields(censoredFields.filter(k => k !== f.key));
+                  }}
+                  style={{ accentColor: 'var(--navy)', transform: 'scale(1.1)' }}
+                />
+                {f.label}
+              </label>
+            ))}
+          </div>
         </div>
       </div>
 

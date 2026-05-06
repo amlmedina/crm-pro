@@ -405,8 +405,8 @@ export default function Drawer({ open, onClose, lead, leads, tab, setTab, cfg, u
       <div id="drawer" className={open ? 'open' : ''}>
         <div id="drhdr">
           <div>
-            <div id="drtitle">{lead?.Nombre_Persona || 'Nuevo Lead'}</div>
-            <div id="drsub">{lead?.Nombre_Empresa || 'Completa el perfil'}</div>
+            <div id="drtitle">{(isCensored && isCensored('Nombre_Persona') && lead) ? '••••••••••' : (lead?.Nombre_Persona || 'Nuevo Lead')}</div>
+            <div id="drsub">{(isCensored && isCensored('Nombre_Empresa') && lead) ? '••••••••••' : (lead?.Nombre_Empresa || 'Completa el perfil')}</div>
           </div>
           <button className="btnx" onClick={onClose}>✕</button>
         </div>
@@ -439,9 +439,15 @@ export default function Drawer({ open, onClose, lead, leads, tab, setTab, cfg, u
 
              <p className="stitle">Datos de Contacto</p>
              <div className="fgrid">
-                <div className="fg full"><label>Nombre</label><input type="text" value={f.Nombre_Persona || ''} onChange={e => setF({...f, Nombre_Persona: e.target.value})} /></div>
-                <div className="fg full"><label>Empresa</label><input type="text" value={f.Nombre_Empresa || ''} onChange={e => setF({...f, Nombre_Empresa: e.target.value})} /></div>
-                <div className="fg"><label>Puesto</label><input type="text" value={f.Puesto || ''} onChange={e => setF({...f, Puesto: e.target.value})} /></div>
+                <div className="fg full"><label>Nombre</label>
+                  {(isCensored && isCensored('Nombre_Persona') && lead) ? <input type="text" className="inp" value="••••••••••" disabled /> : <input type="text" className="inp" value={f.Nombre_Persona || ''} onChange={e => setF({...f, Nombre_Persona: e.target.value})} />}
+                </div>
+                <div className="fg full"><label>Empresa</label>
+                  {(isCensored && isCensored('Nombre_Empresa') && lead) ? <input type="text" className="inp" value="••••••••••" disabled /> : <input type="text" className="inp" value={f.Nombre_Empresa || ''} onChange={e => setF({...f, Nombre_Empresa: e.target.value})} />}
+                </div>
+                <div className="fg"><label>Puesto</label>
+                  {(isCensored && isCensored('Puesto') && lead) ? <input type="text" className="inp" value="••••••••••" disabled /> : <input type="text" className="inp" value={f.Puesto || ''} onChange={e => setF({...f, Puesto: e.target.value})} />}
+                </div>
                 <div className="fg">
                   <label>Decisor</label>
                   <select value={f.Tomador_Decision || ''} onChange={e => setF({...f, Tomador_Decision: e.target.value})}>
@@ -449,13 +455,17 @@ export default function Drawer({ open, onClose, lead, leads, tab, setTab, cfg, u
                      {cfg.opcionesTomador?.map(o => <option key={o} value={o}>{o}</option>)}
                   </select>
                 </div>
-                <div className="fg"><label>Teléfono</label><input type="tel" value={f.Telefono || ''} onChange={e => setF({...f, Telefono: e.target.value})} /></div>
-                <div className="fg"><label style={{color: '#2563eb', fontWeight: '800'}}>LID (WhatsApp ID) ✨ NUEVO </label><input type="text" value={f.LID || ''} onChange={e => setF({...f, LID: e.target.value})} /></div>
+                <div className="fg"><label>Teléfono</label>
+                  {(isCensored && isCensored('Telefono') && lead) ? <input type="text" className="inp" value="••••••••••" disabled /> : <input type="tel" className="inp" value={f.Telefono || ''} onChange={e => setF({...f, Telefono: e.target.value})} />}
+                </div>
+                <div className="fg"><label style={{color: '#2563eb', fontWeight: '800'}}>LID (WhatsApp ID) ✨ NUEVO </label>
+                  <input type="text" className="inp" value={f.LID || ''} onChange={e => setF({...f, LID: e.target.value})} />
+                </div>
                 <div className="fg">
                    <label>Correo Corporativo</label>
                    <div style={{display:'flex', gap:'6px'}}>
-                     <input type="email" style={{flex:1}} value={f.Correo_Corp || ''} onChange={e => setF({...f, Correo_Corp: e.target.value})} />
-                     <button className="btn btnda" onClick={copyEmail} style={{padding:'0 12px', fontSize:'0.75rem'}}>📋 Copiar</button>
+                     {(isCensored && isCensored('Correo_Corp') && lead) ? <input type="text" className="inp" style={{flex:1}} value="••••••••••" disabled /> : <input type="email" className="inp" style={{flex:1}} value={f.Correo_Corp || ''} onChange={e => setF({...f, Correo_Corp: e.target.value})} />}
+                     <button className="btn btnda" onClick={copyEmail} style={{padding:'0 12px', fontSize:'0.75rem'}} disabled={isCensored && isCensored('Correo_Corp') && lead}>📋 Copiar</button>
                    </div>
                 </div>
                 <div className="fg">
@@ -465,7 +475,9 @@ export default function Drawer({ open, onClose, lead, leads, tab, setTab, cfg, u
                      {cfg.opcionesTamano?.map(o => <option key={o} value={o}>{o}</option>)}
                   </select>
                 </div>
-                <div className="fg"><label>Empleados</label><input type="number" value={f.Num_Empleados || ''} onChange={e => setF({...f, Num_Empleados: e.target.value})} /></div>
+                <div className="fg"><label>Empleados</label>
+                  {(isCensored && isCensored('Num_Empleados') && lead) ? <input type="text" className="inp" value="••••••••••" disabled /> : <input type="number" className="inp" value={f.Num_Empleados || ''} onChange={e => setF({...f, Num_Empleados: e.target.value})} />}
+                </div>
              </div>
 
              {/* Campos extra */}
@@ -477,16 +489,16 @@ export default function Drawer({ open, onClose, lead, leads, tab, setTab, cfg, u
                      <div className="fg" key={c.key}>
                         <label>{c.label}</label>
                         {c.tipo === 'select' ? (
-                          <select value={cfs[c.key] || ''} onChange={e => setCfs({...cfs, [c.key]: e.target.value})}>
+                          <select className="inp" value={cfs[c.key] || ''} onChange={e => setCfs({...cfs, [c.key]: e.target.value})} disabled={isCensored && isCensored(c.key) && lead}>
                             <option value="">—</option>
                             {c.opciones.map(o => <option key={o} value={o}>{o}</option>)}
                           </select>
                         ) : c.tipo === 'bool' ? (
-                          <select value={cfs[c.key] || ''} onChange={e => setCfs({...cfs, [c.key]: e.target.value})}>
+                          <select className="inp" value={cfs[c.key] || ''} onChange={e => setCfs({...cfs, [c.key]: e.target.value})} disabled={isCensored && isCensored(c.key) && lead}>
                             <option value="">—</option><option value="Sí">Sí</option><option value="No">No</option>
                           </select>
                         ) : (
-                          <input type={c.tipo==='numero'?'number':c.tipo==='fecha'?'date':'text'} value={cfs[c.key] || ''} onChange={e => setCfs({...cfs, [c.key]: e.target.value})} />
+                          (isCensored && isCensored(c.key) && lead) ? <input type="text" className="inp" value="••••••••••" disabled /> : <input type={c.tipo==='numero'?'number':c.tipo==='fecha'?'date':'text'} className="inp" value={cfs[c.key] || ''} onChange={e => setCfs({...cfs, [c.key]: e.target.value})} />
                         )}
                      </div>
                    ))}
