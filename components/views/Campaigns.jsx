@@ -213,16 +213,18 @@ export default function Campaigns({ leads, cfg, user, openDrawer, initialSelecti
             const scheduledDateStr = `${currentYear}-${bdayMonth}-${day}T${String(bdayHour).padStart(2, '0')}:00`;
             
             const payload = {
-                name: `🎂 Cumpleaños - ${lead.Nombre_Persona || 'Contacto'}`,
-                message: bdayMessage,
-                image: null,
-                scheduledAt: scheduledDateStr,
-                contacts: [{
-                    phone: lead.Telefono || lead.ID_Contacto,
-                    nombre: lead.Nombre_Persona,
-                    empresa: lead.Nombre_Empresa
-                }],
-                createdBy: user.id
+                action: 'create',
+                campaign: {
+                    name: `🎂 Cumpleaños - ${lead.Nombre_Persona || 'Contacto'}`,
+                    message: bdayMessage,
+                    image: null,
+                    scheduledAt: scheduledDateStr,
+                    contacts: [{
+                        phone: lead.Telefono || lead.ID_Contacto,
+                        nombre: lead.Nombre_Persona,
+                        empresa: lead.Nombre_Empresa
+                    }]
+                }
             };
 
             try {
