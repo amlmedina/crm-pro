@@ -1,12 +1,22 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { api } from '@/lib/api';
 import Swal from 'sweetalert2';
 
 export default function Funnel({ leads, cfg, user, openDrawer, setLeads, unreads }) {
   const [draggedId, setDraggedId] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [agentFilter, setAgentFilter] = useState('todos');
+
+  const isManager = user.rol === 'Gerente' || user.rol === 'Administrador';
+
+  // All unique agents from leads
+  const agentOptions = useMemo(() => {
+    const names = new Set();
+    leads.forEach(l => { if (l.Agente_Asignado) names.add(l.Agente_Asignado); });
+    return Array.from(names).sort();
+  }, [leads]);
 
   // SLA Strikes function
   function getStrikeCount(l, stage) {
@@ -16,7 +26,7 @@ export default function Funnel({ leads, cfg, user, openDrawer, setLeads, unreads
       if (h.Estado_Momento === stage) st++;
       else break;
     }
-    return st - 1; // 1 interaction is the initial setup, next ones are strikes
+    return st - 1;
   }
 
   const handleDragStart = (e, id) => {
@@ -37,69 +47,109 @@ export default function Funnel({ leads, cfg, user, openDrawer, setLeads, unreads
   const handleDrop = async (e, destStage) => {
     e.preventDefault();
     e.currentTarget.classList.remove('dragover');
-    
+
     const id = e.dataTransfer.getData('text/plain');
     if (!id || !destStage) return;
 
     const lead = leads.find(l => l.ID_Contacto === id);
     if (!lead || lead.Estado_Funnel === destStage) return;
-    
-    // Save locally for instant UI update
+
     const oldLeads = [...leads];
     setLeads(leads.map(l => l.ID_Contacto === id ? { ...l, Estado_Funnel: destStage } : l));
 
     try {
-      await api('saveInteraction', { 
-        idContacto: id, 
-        nuevoEstado: destStage, 
-        notas: `Movido vía Kanban a ${destStage}`, 
-        nombreUsuario: user.nombre 
+      await api('saveInteraction', {
+        idContacto: id,
+        nuevoEstado: destStage,
+        notas: `Movido vía Kanban a ${destStage}`,
+        nombreUsuario: user.nombre
       });
-      // Optionally trigger global refreshLeads in DashboardLayout to fetch Historial
     } catch {
-      Swal.fire({title: 'Error de Red', text: 'No se pudo mover la tarjeta', icon: 'error'});
-      setLeads(oldLeads); // rollback
+      Swal.fire({ title: 'Error de Red', text: 'No se pudo mover la tarjeta', icon: 'error' });
+      setLeads(oldLeads);
     }
   };
 
   const activeStages = cfg.funnel || [];
-  
-  // Apply Search Filtering
+
+  // Filtering: agents only see their own leads; managers can filter by agent
   const filteredLeads = leads.filter(l => {
     const s = searchTerm.toLowerCase();
-    return (l.Nombre_Persona || '').toLowerCase().includes(s) || 
-           (l.Nombre_Empresa || '').toLowerCase().includes(s);
+    const matchSearch =
+      (l.Nombre_Persona || '').toLowerCase().includes(s) ||
+      (l.Telefono || '').includes(s);
+
+    let matchAgent = true;
+    if (!isManager) {
+      // Agents always see only their own
+      matchAgent = (l.Agente_Asignado || '') === user.nombre;
+    } else if (agentFilter === '__sin_asignar__') {
+      matchAgent = !l.Agente_Asignado;
+    } else if (agentFilter !== 'todos') {
+      matchAgent = (l.Agente_Asignado || '') === agentFilter;
+    }
+
+    return matchSearch && matchAgent;
   });
 
   const frozenLeads = filteredLeads.filter(l => l.Estado_Funnel === 'Congelado');
 
+  const activeLabel = isManager
+    ? (agentFilter === 'todos' ? 'Todo el equipo' : agentFilter === '__sin_asignar__' ? 'Sin Asignar' : agentFilter)
+    : user.nombre;
+
   return (
-    <div className="view on" id="vfunnel" style={{display:'flex', flexDirection:'column', gap:'15px', padding:'20px'}}>
-      
-      {/* Search Bar Area */}
-      <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(255,255,255,0.7)', backdropFilter: 'blur(10px)', padding: '10px 20px', borderRadius: '12px', border: '1px solid var(--brd)', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
-        <span style={{ marginRight: '10px', fontSize: '1.2rem' }}>🔍</span>
-        <input 
-          type="text" 
-          placeholder="Buscar Prospecto o Empresa en el Funnel..." 
-          value={searchTerm}
-          onChange={e => setSearchTerm(e.target.value)}
-          style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: '0.9rem', color: 'var(--navy)' }}
-        />
-        {searchTerm && (
-          <button 
-            onClick={() => setSearchTerm('')}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: '0.8rem' }}
-          >Limpiar</button>
+    <div className="view on" id="vfunnel" style={{ display: 'flex', flexDirection: 'column', gap: '15px', padding: '20px' }}>
+
+      {/* Toolbar */}
+      <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+
+        {/* Search */}
+        <div style={{ flex: 1, minWidth: '200px', display: 'flex', alignItems: 'center', background: 'var(--s1)', padding: '10px 16px', borderRadius: '10px', border: '1px solid var(--brd)', boxShadow: '0 2px 6px rgba(0,0,0,0.05)' }}>
+          <span style={{ marginRight: '10px', fontSize: '1.1rem' }}>🔍</span>
+          <input
+            type="text"
+            placeholder="Buscar contacto..."
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: '0.9rem', color: 'var(--text)' }}
+          />
+          {searchTerm && (
+            <button onClick={() => setSearchTerm('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: '0.85rem' }}>✕</button>
+          )}
+        </div>
+
+        {/* Agent filter — Managers only */}
+        {isManager && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--s1)', padding: '8px 14px', borderRadius: '10px', border: '1px solid var(--brd)', boxShadow: '0 2px 6px rgba(0,0,0,0.05)', flexShrink: 0 }}>
+            <span style={{ fontSize: '1rem' }}>👤</span>
+            <select
+              value={agentFilter}
+              onChange={e => setAgentFilter(e.target.value)}
+              style={{ background: 'transparent', border: 'none', outline: 'none', fontSize: '0.85rem', color: 'var(--text)', cursor: 'pointer', minWidth: '150px' }}
+            >
+              <option value="todos">Todo el equipo</option>
+              {agentOptions.map(a => (
+                <option key={a} value={a}>{a}</option>
+              ))}
+              <option value="__sin_asignar__">Sin Asignar</option>
+            </select>
+          </div>
         )}
+
+        {/* Summary badge */}
+        <div style={{ fontSize: '0.78rem', color: 'var(--muted)', padding: '6px 12px', background: 'var(--s2)', borderRadius: '20px', border: '1px solid var(--brd)', whiteSpace: 'nowrap' }}>
+          {filteredLeads.length} contactos · <strong style={{ color: 'var(--text)' }}>{activeLabel}</strong>
+        </div>
       </div>
 
+      {/* Kanban Board */}
       <div id="kanban" style={{ flex: 1 }}>
         {activeStages.map(f => {
           const colLeads = filteredLeads.filter(l => l.Estado_Funnel === f.stage);
           return (
-            <div 
-              className="kcol" 
+            <div
+              className="kcol"
               key={f.stage}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
@@ -116,9 +166,11 @@ export default function Funnel({ leads, cfg, user, openDrawer, setLeads, unreads
                 {colLeads.map(l => {
                   const strikes = getStrikeCount(l, f.stage);
                   const isOver = f.limit > 0 && strikes >= f.limit;
+                  const phoneSuffix = String(l.Telefono || '').replace(/[\s\-\+\(\)]/g, '').slice(-10);
+                  const u = (unreads[phoneSuffix] || 0) + (unreads[l.LID] || 0);
                   return (
-                    <div 
-                      className={`kcard ${isOver ? 'over' : ''}`} 
+                    <div
+                      className={`kcard ${isOver ? 'over' : ''}`}
                       key={l.ID_Contacto}
                       draggable
                       onDragStart={(e) => handleDragStart(e, l.ID_Contacto)}
@@ -126,22 +178,24 @@ export default function Funnel({ leads, cfg, user, openDrawer, setLeads, unreads
                       style={{ borderLeftColor: isOver ? 'var(--danger)' : 'var(--navy)' }}
                     >
                       <div className="kname" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                         {l.Nombre_Persona}
-                         {(() => {
-                            const phoneSuffix = String(l.Telefono || '').replace(/[\s\-\+\(\)]/g, '').slice(-10);
-                            const lidId = l.LID;
-                            const u = (unreads[phoneSuffix] || 0) + (unreads[lidId] || 0);
-                            if (u > 0) return (
-                               <span style={{ background: '#ef4444', color: '#fff', borderRadius: '10px', padding: '1px 6px', fontSize: '0.65rem', fontWeight: 'bold' }}>
-                                  {u}
-                               </span>
-                            );
-                            return null;
-                         })()}
+                        {l.Nombre_Persona}
+                        {u > 0 && (
+                          <span style={{ background: '#ef4444', color: '#fff', borderRadius: '10px', padding: '1px 6px', fontSize: '0.65rem', fontWeight: 'bold' }}>
+                            {u}
+                          </span>
+                        )}
                       </div>
-                      <div className="ksub" style={{marginTop:'4px'}}>{l.Nombre_Empresa || 'Sin empresa'}</div>
-                      <div className="ksub">{(l.Presupuesto && !isNaN(Number(l.Presupuesto))) ? `$${Number(l.Presupuesto).toLocaleString()}` : ''}</div>
-                      {isOver && <div style={{fontSize:'10px', color:'var(--danger)', marginTop:'6px'}}>⚠️ {strikes}/{f.limit} Interacciones</div>}
+                      {/* Show assigned agent on card when manager views "todos" */}
+                      {isManager && agentFilter === 'todos' && l.Agente_Asignado && (
+                        <div style={{ fontSize: '0.68rem', color: 'var(--muted)', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                          <span>👤</span> {l.Agente_Asignado}
+                        </div>
+                      )}
+                      {isOver && (
+                        <div style={{ fontSize: '10px', color: 'var(--danger)', marginTop: '6px' }}>
+                          ⚠️ {strikes}/{f.limit} Interacciones
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -150,18 +204,20 @@ export default function Funnel({ leads, cfg, user, openDrawer, setLeads, unreads
           );
         })}
 
-        {/* Columna Congelados (Sólamente UI) */}
+        {/* Frozen column */}
         {frozenLeads.length > 0 && (
           <div className="kcol" style={{ opacity: 0.8 }}>
             <div className="khdr" style={{ background: '#e2e8f0' }}>
-              <div><div className="ktitle" style={{color:'var(--muted)'}}>Congelados (Fuera de SLA)</div></div>
-              <div className="kcnt" style={{color:'var(--muted)'}}>{frozenLeads.length}</div>
+              <div><div className="ktitle" style={{ color: 'var(--muted)' }}>Congelados</div></div>
+              <div className="kcnt" style={{ color: 'var(--muted)' }}>{frozenLeads.length}</div>
             </div>
             <div className="kcards">
               {frozenLeads.map(l => (
                 <div className="kcard fz" key={l.ID_Contacto} onClick={() => openDrawer(l)}>
-                  <div className="kname" style={{color:'var(--muted)'}}>{l.Nombre_Persona}</div>
-                  <div className="ksub">{l.Nombre_Empresa}</div>
+                  <div className="kname" style={{ color: 'var(--muted)' }}>{l.Nombre_Persona}</div>
+                  {isManager && agentFilter === 'todos' && l.Agente_Asignado && (
+                    <div style={{ fontSize: '0.68rem', color: 'var(--muted)', marginTop: '2px' }}>👤 {l.Agente_Asignado}</div>
+                  )}
                 </div>
               ))}
             </div>
