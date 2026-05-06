@@ -11,7 +11,9 @@ export default function Campaigns({ leads, cfg, user, openDrawer, initialSelecti
 
     // Birthday scheduling state
     const [bdayMonth, setBdayMonth] = useState((new Date().getMonth() + 1).toString().padStart(2, '0'));
-    const [bdayMessage, setBdayMessage] = useState('¡Hola {nombre}! 🎉 Hoy es tu día especial. De parte de todo el equipo, te deseamos un feliz cumpleaños. ¡Que lo disfrutes mucho!');
+    const [bdayMessage, setBdayMessage] = useState(
+        cfg?.bdayDefaultMessage || '¡Hola {Nombre_Persona}! 🎉 Hoy es tu día especial. De parte de todo el equipo, te deseamos un feliz cumpleaños. ¡Que lo disfrutes mucho!'
+    );
     const [bdayHour, setBdayHour] = useState(10);
 
     // Form state

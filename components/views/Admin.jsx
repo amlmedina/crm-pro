@@ -13,6 +13,7 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
   const [enableDlp, setEnableDlp] = useState(true);
   const [censoredFields, setCensoredFields] = useState([]);
   const [waPredefs, setWaPredefs] = useState([]);
+  const [bdayDefaultMessage, setBdayDefaultMessage] = useState('');
 
   // Users state
   const [users, setUsers] = useState([]);
@@ -42,6 +43,7 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
       ];
       setWaPredefs(loadedPredefs.map(p => typeof p === 'string' ? { title: p.substring(0, 15), text: p } : p));
       setCensoredFields(cfg.censoredFields || []);
+      setBdayDefaultMessage(cfg.bdayDefaultMessage || '¡Hola {Nombre_Persona}! 🎉 Hoy es tu día especial. De parte de todo el equipo, te deseamos un feliz cumpleaños. ¡Que lo disfrutes mucho!');
     }
     loadUsers();
     loadWaStatus();
@@ -116,7 +118,8 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
       camposPersonalizados: campos,
       enableDlp: enableDlp,
       censoredFields: censoredFields,
-      wa_predefs: waPredefs.filter(p => p.text?.trim() || p.title?.trim())
+      wa_predefs: waPredefs.filter(p => p.text?.trim() || p.title?.trim()),
+      bdayDefaultMessage: bdayDefaultMessage.trim() || '¡Hola {Nombre_Persona}! 🎉 Hoy es tu día especial. ¡Feliz cumpleaños!'
     };
 
     try {
@@ -546,6 +549,18 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
         </div>
       </div>
 
+      {/* ── Mensaje Default Cumpleaños ─────────────────────── */}
+      <div className="acard">
+        <h3>🎂 Mensaje por Defecto de Cumpleaños</h3>
+        <p style={{ fontSize: '0.72rem', color: 'var(--muted)', marginBottom: '10px' }}>Este mensaje se pre-cargará automáticamente al programar una campaña de cumpleaños. Usa variables como <code>{'{Nombre_Persona}'}</code> para personalizar.</p>
+        <textarea
+          value={bdayDefaultMessage}
+          onChange={e => setBdayDefaultMessage(e.target.value)}
+          rows={4}
+          style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid var(--brd)', fontFamily: 'inherit', fontSize: '0.85rem', resize: 'vertical', background: 'var(--s2)', color: 'var(--text)' }}
+          placeholder="¡Hola {Nombre_Persona}! 🎉 Hoy es tu día especial..."
+        />
+      </div>
       {/* ── Tema Visual ───────────────────────────────────── */}
       <div className="acard" style={{ borderLeft: '4px solid var(--navy)' }}>
         <h3 style={{ marginBottom: '6px', fontSize: '0.86rem' }}>Tema Visual</h3>
