@@ -9,6 +9,7 @@ import Funnel from '@/components/views/Funnel';
 import Tasks from '@/components/views/Tasks';
 import Campaigns from '@/components/views/Campaigns';
 import Drawer from '@/components/ui/Drawer';
+import { THEMES, applyTheme, loadSavedTheme, THEME_STORAGE_KEY } from '@/lib/themes';
 
 export default function DashboardLayout({ user }) {
   const router = useRouter();
@@ -19,6 +20,18 @@ export default function DashboardLayout({ user }) {
   const [unreads, setUnreads] = useState({});
   const [threads, setThreads] = useState([]);
   const [selectedForCampaign, setSelectedForCampaign] = useState([]);
+  const [currentTheme, setCurrentTheme] = useState('galaxia');
+
+  // Load saved theme on mount
+  useEffect(() => {
+    const saved = loadSavedTheme();
+    setCurrentTheme(saved);
+  }, []);
+
+  function changeTheme(themeId) {
+    applyTheme(themeId);
+    setCurrentTheme(themeId);
+  }
 
   // Global Drawer State
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -194,6 +207,28 @@ export default function DashboardLayout({ user }) {
           )}
         </div>
         <div id="nuser">
+          {/* Theme Picker */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginRight: '12px' }}>
+            {Object.values(THEMES).map(t => (
+              <button
+                key={t.id}
+                title={`${t.name} — ${t.description}`}
+                onClick={() => changeTheme(t.id)}
+                style={{
+                  width: '18px', height: '18px',
+                  borderRadius: '50%',
+                  background: t.preview,
+                  border: currentTheme === t.id ? '2px solid var(--text)' : '2px solid transparent',
+                  cursor: 'pointer',
+                  padding: 0,
+                  boxShadow: currentTheme === t.id ? `0 0 0 2px ${t.preview}55` : 'none',
+                  transform: currentTheme === t.id ? 'scale(1.2)' : 'scale(1)',
+                  transition: 'all .2s',
+                  flexShrink: 0
+                }}
+              />
+            ))}
+          </div>
           <span style={{ fontWeight: 700, color: 'var(--text)', marginRight: '4px' }}>{user.nombre}</span> · {user.rol}
           <button onClick={handleLogout} style={{ marginLeft: '12px', padding: '4px 8px', background: 'var(--s2)', border: '1px solid var(--brd)', borderRadius: '4px', color: 'var(--danger)', cursor: 'pointer', fontSize: '0.7rem', fontWeight: 700 }}>
             SALIR

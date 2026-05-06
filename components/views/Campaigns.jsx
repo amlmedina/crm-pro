@@ -389,6 +389,40 @@ export default function Campaigns({ leads, cfg, user, openDrawer, initialSelecti
                                 Filtros {filtersOpen ? '▲' : '▼'}
                             </button>
                         </div>
+
+                        {/* Bulk selection actions */}
+                        <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+                            <button
+                                className="btn btngh"
+                                style={{ fontSize: '0.7rem', padding: '3px 8px' }}
+                                onClick={() => {
+                                    const toAdd = filteredLeads
+                                        .filter(l => !selectedContacts.some(c => c.phone === (l.Telefono || l.ID_Contacto)))
+                                        .slice(0, 50 - selectedContacts.length);
+                                    setSelectedContacts([...selectedContacts, ...toAdd.map(l => ({
+                                        phone: l.Telefono || l.ID_Contacto,
+                                        nombre: l.Nombre_Persona,
+                                        empresa: l.Nombre_Empresa
+                                    }))]);
+                                }}
+                            >☑ Seleccionar todos</button>
+                            <button
+                                className="btn btngh"
+                                style={{ fontSize: '0.7rem', padding: '3px 8px' }}
+                                onClick={() => {
+                                    const inverted = filteredLeads
+                                        .filter(l => !selectedContacts.some(c => c.phone === (l.Telefono || l.ID_Contacto)))
+                                        .slice(0, 50)
+                                        .map(l => ({ phone: l.Telefono || l.ID_Contacto, nombre: l.Nombre_Persona, empresa: l.Nombre_Empresa }));
+                                    setSelectedContacts(inverted);
+                                }}
+                            >↕ Invertir</button>
+                            <button
+                                className="btn btngh"
+                                style={{ fontSize: '0.7rem', padding: '3px 8px', color: 'var(--red)' }}
+                                onClick={() => setSelectedContacts([])}
+                            >✕ Limpiar</button>
+                        </div>
                         
                         <input type="text" className="inp" placeholder="Filtrar por nombre, empresa, teléfono..." value={q} onChange={e => setQ(e.target.value)} />
                         
