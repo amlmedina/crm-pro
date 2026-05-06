@@ -21,6 +21,7 @@ export default function DashboardLayout({ user }) {
   const [threads, setThreads] = useState([]);
   const [selectedForCampaign, setSelectedForCampaign] = useState([]);
   const [currentTheme, setCurrentTheme] = useState('galaxia');
+  const [usersMap, setUsersMap] = useState({});
 
   // Load saved theme on mount
   useEffect(() => {
@@ -93,6 +94,25 @@ export default function DashboardLayout({ user }) {
       setCfg(resCfg);
       const newLeads = resContacts.data || [];
       setLeads(newLeads);
+
+      // Build a map of every user identifier -> nombre for resolving Agente_Asignado
+      try {
+        const usersRes = await api('getUsuarios');
+        const map = {};
+        (usersRes || []).forEach(u => {
+          // Map by every possible identifier the GAS might have stored
+          if (u.id !== undefined && u.id !== null) map[String(u.id)] = u.nombre;
+          if (u.nombre) map[u.nombre] = u.nombre;
+          if (u.correo) {
+            map[u.correo] = u.nombre;
+            // Also map the part before @ in case it's stored as username
+            const prefix = u.correo.split('@')[0];
+            if (prefix) map[prefix] = u.nombre;
+            if (prefix) map[prefix.toUpperCase()] = u.nombre;
+          }
+        });
+        setUsersMap(map);
+      } catch {}
 
       // Initial WA load and auto-link trigger
       await fetchWAData();
@@ -265,7 +285,7 @@ export default function DashboardLayout({ user }) {
           </div>
 
           <div style={{ display: activeTab === 'funnel' ? 'block' : 'none', flex: 1, overflowY: 'auto' }}>
-            <Funnel leads={leads} setLeads={setLeads} cfg={cfg} loading={loading} refreshLeads={initApp} openDrawer={openDrawer} user={user} unreads={unreads} isCensored={isCensored} />
+            <Funnel leads={leads} setLeads={setLeads} cfg={cfg} loading={loading} refreshLeads={initApp} openDrawer={openDrawer} user={user} unreads={unreads} isCensored={isCensored} usersMap={usersMap} />
           </div>
 
           <div style={{ display: activeTab === 'tasks' ? 'flex' : 'none', flex: 1, overflow: 'hidden' }}>
