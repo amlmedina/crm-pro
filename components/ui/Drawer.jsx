@@ -283,18 +283,10 @@ export default function Drawer({ open, onClose, lead, leads, tab, setTab, cfg, u
       if (lead) {
         setF({
           Nombre_Persona: lead.Nombre_Persona || '',
-          Nombre_Empresa: lead.Nombre_Empresa || '',
-          Puesto: lead.Puesto || '',
-          Tomador_Decision: lead.Tomador_Decision || '',
           Telefono: lead.Telefono || '',
           LID: lead.LID || '',
           Correo_Corp: lead.Correo_Corp || '',
-          Tamano_Org: lead.Tamano_Org || '',
-          Num_Empleados: lead.Num_Empleados || '',
-          Sitio_Web: lead.Sitio_Web || '',
           Cumpleanos: lead.Cumpleanos || '',
-          Direccion: lead.Direccion || '',
-          Presupuesto: lead.Presupuesto || '',
           Estado_Funnel: lead.Estado_Funnel || (cfg.funnel?.[0]?.stage || '')
         });
         
@@ -308,9 +300,8 @@ export default function Drawer({ open, onClose, lead, leads, tab, setTab, cfg, u
       } else {
         // Nuevo Lead
         setF({
-          Nombre_Persona: '', Nombre_Empresa: '', Puesto: '', Tomador_Decision: '',
-          Telefono: '', LID: '', Correo_Corp: '', Tamano_Org: '', Num_Empleados: '',
-          Sitio_Web: '', Cumpleanos: '', Direccion: '', Presupuesto: '', Estado_Funnel: cfg.funnel?.[0]?.stage || ''
+          Nombre_Persona: '', Telefono: '', LID: '', Correo_Corp: '',
+          Cumpleanos: '', Estado_Funnel: cfg.funnel?.[0]?.stage || ''
         });
         const cfsData = {};
         (cfg.camposPersonalizados || []).forEach(c => { cfsData[c.key] = ''; });
@@ -333,11 +324,29 @@ export default function Drawer({ open, onClose, lead, leads, tab, setTab, cfg, u
     setLoadingHist(false);
   }
 
+  function toTitleCase(str) {
+    if (!str) return '';
+    return str.toLowerCase().split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  }
+
   async function doSavePerfil() {
     if (!f.Nombre_Persona) return Swal.fire('Requerido', 'El nombre es obligatorio', 'warning');
     setLoading(true);
     try {
-      const perfil = { ID_Contacto: lead?.ID_Contacto, ...f, ...cfs };
+      const cleanPhone = String(f.Telefono || '').replace(/[\s\-\+\(\)]/g, '');
+      const titleName = toTitleCase(f.Nombre_Persona);
+      
+      const perfil = { 
+        ID_Contacto: lead?.ID_Contacto, 
+        ...f, 
+        Nombre_Persona: titleName,
+        Telefono: cleanPhone,
+        ...cfs 
+      };
+      
+      // Update local state to reflect UI changes immediately
+      setF(prev => ({ ...prev, Nombre_Persona: titleName, Telefono: cleanPhone }));
+
       await api('saveProfile', { perfil, userId: user.id });
       await refreshLeads();
       Swal.fire({ title: '✅ Guardado', icon: 'success', timer: 1500, showConfirmButton: false });
@@ -443,19 +452,6 @@ export default function Drawer({ open, onClose, lead, leads, tab, setTab, cfg, u
                 <div className="fg full"><label>Nombre</label>
                   {(isCensored && isCensored('Nombre_Persona') && lead) ? <input type="text" className="inp" value="••••••••••" disabled /> : <input type="text" className="inp" value={f.Nombre_Persona || ''} onChange={e => setF({...f, Nombre_Persona: e.target.value})} />}
                 </div>
-                <div className="fg full"><label>Empresa</label>
-                  {(isCensored && isCensored('Nombre_Empresa') && lead) ? <input type="text" className="inp" value="••••••••••" disabled /> : <input type="text" className="inp" value={f.Nombre_Empresa || ''} onChange={e => setF({...f, Nombre_Empresa: e.target.value})} />}
-                </div>
-                <div className="fg"><label>Puesto</label>
-                  {(isCensored && isCensored('Puesto') && lead) ? <input type="text" className="inp" value="••••••••••" disabled /> : <input type="text" className="inp" value={f.Puesto || ''} onChange={e => setF({...f, Puesto: e.target.value})} />}
-                </div>
-                <div className="fg">
-                  <label>Decisor</label>
-                  <select value={f.Tomador_Decision || ''} onChange={e => setF({...f, Tomador_Decision: e.target.value})}>
-                     <option value="">—</option>
-                     {cfg.opcionesTomador?.map(o => <option key={o} value={o}>{o}</option>)}
-                  </select>
-                </div>
                 <div className="fg"><label>Teléfono</label>
                   {(isCensored && isCensored('Telefono') && lead) ? <input type="text" className="inp" value="••••••••••" disabled /> : <input type="tel" className="inp" value={f.Telefono || ''} onChange={e => setF({...f, Telefono: e.target.value})} />}
                 </div>
@@ -465,22 +461,12 @@ export default function Drawer({ open, onClose, lead, leads, tab, setTab, cfg, u
                 <div className="fg"><label style={{color: '#2563eb', fontWeight: '800'}}>LID (WhatsApp ID) ✨ NUEVO </label>
                   <input type="text" className="inp" value={f.LID || ''} onChange={e => setF({...f, LID: e.target.value})} />
                 </div>
-                <div className="fg">
-                   <label>Correo Corporativo</label>
+                <div className="fg full">
+                   <label>Correo Electrónico</label>
                    <div style={{display:'flex', gap:'6px'}}>
                      {(isCensored && isCensored('Correo_Corp') && lead) ? <input type="text" className="inp" style={{flex:1}} value="••••••••••" disabled /> : <input type="email" className="inp" style={{flex:1}} value={f.Correo_Corp || ''} onChange={e => setF({...f, Correo_Corp: e.target.value})} />}
                      <button className="btn btnda" onClick={copyEmail} style={{padding:'0 12px', fontSize:'0.75rem'}} disabled={isCensored && isCensored('Correo_Corp') && lead}>📋 Copiar</button>
                    </div>
-                </div>
-                <div className="fg">
-                  <label>Tamaño Org.</label>
-                  <select value={f.Tamano_Org || ''} onChange={e => setF({...f, Tamano_Org: e.target.value})}>
-                     <option value="">—</option>
-                     {cfg.opcionesTamano?.map(o => <option key={o} value={o}>{o}</option>)}
-                  </select>
-                </div>
-                <div className="fg"><label>Empleados</label>
-                  {(isCensored && isCensored('Num_Empleados') && lead) ? <input type="text" className="inp" value="••••••••••" disabled /> : <input type="number" className="inp" value={f.Num_Empleados || ''} onChange={e => setF({...f, Num_Empleados: e.target.value})} />}
                 </div>
              </div>
 

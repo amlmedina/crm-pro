@@ -18,8 +18,6 @@ export default function Directory({
   const baseCols = [
     { key: 'ID_Contacto', label: 'ID' },
     { key: 'Nombre_Persona', label: 'Nombre' },
-    { key: 'Nombre_Empresa', label: 'Empresa' },
-    { key: 'Puesto', label: 'Puesto' },
     { key: 'Telefono', label: 'Teléfono' },
     { key: 'Correo_Corp', label: 'Correo' },
     { key: 'Estado_Funnel', label: 'Etapa' }

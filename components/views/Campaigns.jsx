@@ -33,10 +33,6 @@ export default function Campaigns({ leads, cfg, user, openDrawer, initialSelecti
             // Estado_Funnel: options come from cfg.funnel
             { key: 'Estado_Funnel', label: 'Etapa Funnel', options: (cfg?.funnel || []).map(f => f.stage).filter(Boolean) },
             { key: 'Nombre_Persona', label: 'Nombre', options: null },
-            { key: 'Nombre_Empresa', label: 'Empresa', options: null },
-            { key: 'Puesto', label: 'Puesto', options: null },
-            { key: 'Tomador_Decision', label: 'Decisor', options: cfg?.opcionesTomador || null },
-            { key: 'Tamano_Org', label: 'Tamaño Org.', options: cfg?.opcionesTamano || null },
         ];
         if (cfg?.camposPersonalizados) {
             cfg.camposPersonalizados.forEach(c => base.push({
