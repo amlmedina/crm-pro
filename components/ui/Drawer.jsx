@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { api } from '@/lib/api';
 import Swal from 'sweetalert2';
 
-export default function Drawer({ open, onClose, lead, leads, tab, setTab, cfg, user, refreshLeads }) {
+export default function Drawer({ open, onClose, lead, leads, tab, setTab, cfg, user, refreshLeads, isCensored }) {
   const [f, setF] = useState({});
   const [cfs, setCfs] = useState({});
   const [loading, setLoading] = useState(false);
