@@ -8,6 +8,8 @@ export default function Funnel({ leads, cfg, user, openDrawer, setLeads, unreads
   const [draggedId, setDraggedId] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [agentFilter, setAgentFilter] = useState('todos');
+  const [selectedLeads, setSelectedLeads] = useState(new Set());
+  const [bulkDestStage, setBulkDestStage] = useState('');
 
   const isManager = user.rol === 'Gerente' || user.rol === 'Administrador';
 
@@ -74,6 +76,45 @@ export default function Funnel({ leads, cfg, user, openDrawer, setLeads, unreads
       });
     } catch {
       Swal.fire({ title: 'Error de Red', text: 'No se pudo mover la tarjeta', icon: 'error' });
+      setLeads(oldLeads);
+    }
+  };
+
+  const handleBulkMove = async () => {
+    if (selectedLeads.size === 0 || !bulkDestStage) return;
+
+    Swal.fire({ 
+      title: `Moviendo ${selectedLeads.size} contactos...`, 
+      allowOutsideClick: false, 
+      didOpen: () => Swal.showLoading() 
+    });
+
+    const oldLeads = [...leads];
+    
+    // Optimistic UI Update
+    setLeads(leads.map(l => 
+      selectedLeads.has(l.ID_Contacto) ? { ...l, Estado_Funnel: bulkDestStage } : l
+    ));
+
+    try {
+      const selectedIds = Array.from(selectedLeads);
+      
+      // Sequentially process to respect GAS limits
+      for (const id of selectedIds) {
+        await api('saveInteraction', {
+          idContacto: id,
+          nuevoEstado: bulkDestStage,
+          notas: `[Bulk] Movido masivamente a ${bulkDestStage}`,
+          nombreUsuario: user.nombre
+        });
+      }
+
+      Swal.fire({ title: '✅ Movimiento Completado', icon: 'success', timer: 1500, showConfirmButton: false });
+      setSelectedLeads(new Set()); // Clear selection
+      setBulkDestStage('');
+    } catch (err) {
+      console.error(err);
+      Swal.fire({ title: 'Error', text: 'Ocurrió un problema moviendo algunas tarjetas. Se revertirán los cambios.', icon: 'error' });
       setLeads(oldLeads);
     }
   };
@@ -164,6 +205,70 @@ export default function Funnel({ leads, cfg, user, openDrawer, setLeads, unreads
         </div>
       </div>
 
+      {/* Floating Action Bar for Bulk Selection */}
+      {selectedLeads.size > 0 && (
+        <div style={{
+          position: 'fixed',
+          bottom: '20px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: 'var(--s1)',
+          padding: '12px 24px',
+          borderRadius: '30px',
+          boxShadow: '0 10px 25px rgba(0,0,0,0.3)',
+          border: '1px solid var(--accent)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '15px',
+          zIndex: 1000
+        }}>
+          <span style={{ fontWeight: 600, color: 'var(--text)' }}>
+            {selectedLeads.size} seleccionado(s)
+          </span>
+          
+          <select 
+            value={bulkDestStage} 
+            onChange={e => setBulkDestStage(e.target.value)}
+            style={{
+              padding: '6px 12px',
+              borderRadius: '8px',
+              background: 'var(--s2)',
+              border: '1px solid var(--brd)',
+              color: 'var(--text)',
+              outline: 'none',
+              cursor: 'pointer'
+            }}
+          >
+            <option value="">-- Seleccionar Etapa --</option>
+            {activeStages.map(stage => (
+              <option key={stage.stage} value={stage.stage}>{stage.stage}</option>
+            ))}
+          </select>
+
+          <button 
+            className="btn btnsm" 
+            onClick={handleBulkMove}
+            disabled={!bulkDestStage}
+            style={{ 
+              opacity: bulkDestStage ? 1 : 0.5, 
+              cursor: bulkDestStage ? 'pointer' : 'not-allowed'
+            }}
+          >
+            🚀 Mover
+          </button>
+          
+          <button 
+            onClick={() => setSelectedLeads(new Set())}
+            style={{
+              background: 'none', border: 'none', color: 'var(--danger)', fontSize: '1.2rem', cursor: 'pointer', padding: '0 5px'
+            }}
+            title="Cancelar selección"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Kanban Board */}
       <div id="kanban" style={{ flex: 1 }}>
         {activeStages.map(f => {
@@ -193,9 +298,23 @@ export default function Funnel({ leads, cfg, user, openDrawer, setLeads, unreads
                       draggable
                       onDragStart={(e) => handleDragStart(e, l.ID_Contacto)}
                       onClick={() => openDrawer(l)}
-                      style={{ borderLeftColor: getAgentColor(resolveName(l.Agente_Asignado)) }}
+                      style={{ borderLeftColor: getAgentColor(resolveName(l.Agente_Asignado)), position: 'relative' }}
                     >
-                      <div className="kname" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={selectedLeads.has(l.ID_Contacto)}
+                        onChange={(e) => {
+                          const newSet = new Set(selectedLeads);
+                          if (e.target.checked) newSet.add(l.ID_Contacto);
+                          else newSet.delete(l.ID_Contacto);
+                          setSelectedLeads(newSet);
+                        }}
+                        onClick={e => e.stopPropagation()}
+                        style={{
+                           position: 'absolute', top: '12px', right: '12px', width: '16px', height: '16px', cursor: 'pointer', zIndex: 2
+                        }}
+                      />
+                      <div className="kname" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingRight: '25px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           {l.Nombre_Persona}
                         </div>
