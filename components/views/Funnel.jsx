@@ -207,7 +207,6 @@ export default function Funnel({ leads, cfg, user, openDrawer, setLeads, unreads
                       </div>
                       
                       <div className="kmeta">
-                        {l.Ultima_Interaccion && <span>🕒 {l.Ultima_Interaccion}</span>}
                         {l.Estado_Funnel === 'Congelado' && <span className="ct">❄️ Congelado</span>}
                       </div>
                       
