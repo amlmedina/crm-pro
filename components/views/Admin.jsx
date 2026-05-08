@@ -7,8 +7,6 @@ import { THEMES } from '@/lib/themes';
 
 export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
   const [adminTab, setAdminTab] = useState('usuarios');
-  const [opcionesTomador, setOpcionesTomador] = useState('');
-  const [opcionesTamano, setOpcionesTamano] = useState('');
   const [funnel, setFunnel] = useState([]);
   const [campos, setCampos] = useState([]);
   const [enableDlp, setEnableDlp] = useState(true);
@@ -30,8 +28,6 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
 
   useEffect(() => {
     if (cfg) {
-      setOpcionesTomador(cfg.opcionesTomador?.join(', ') || '');
-      setOpcionesTamano(cfg.opcionesTamano?.join(', ') || '');
       setFunnel(cfg.funnel || []);
       setCampos(cfg.camposPersonalizados || []);
       setEnableDlp(cfg.enableDlp !== undefined ? cfg.enableDlp : true);
@@ -114,8 +110,6 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
     const newCfg = {
       ...cfg,
       funnel: funnel.filter(f => f.stage.trim() !== ''),
-      opcionesTomador: opcionesTomador.split(',').map(s => s.trim()).filter(Boolean),
-      opcionesTamano: opcionesTamano.split(',').map(s => s.trim()).filter(Boolean),
       camposPersonalizados: campos,
       enableDlp: enableDlp,
       censoredFields: censoredFields,
@@ -508,12 +502,6 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
             <button className="btn btndel" onClick={() => rmStage(i)}>✕</button>
           </div>
         ))}
-      </div>
-
-      <div className="acard">
-        <h3>Catálogos de Selección</h3>
-        <div className="fg"><label>Tomadores de Decisión (comas)</label><input type="text" value={opcionesTomador} onChange={e => setOpcionesTomador(e.target.value)} /></div>
-        <div className="fg"><label>Tamaños de Org. (comas)</label><input type="text" value={opcionesTamano} onChange={e => setOpcionesTamano(e.target.value)} /></div>
       </div>
 
       <div className="acard">
