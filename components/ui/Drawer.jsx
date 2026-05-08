@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { api } from '@/lib/api';
 import Swal from 'sweetalert2';
 
-export default function Drawer({ open, onClose, lead, leads, tab, setTab, cfg, user, refreshLeads, isCensored }) {
+export default function Drawer({ open, onClose, lead, leads, setLeads, tab, setTab, cfg, user, refreshLeads, isCensored }) {
   const [f, setF] = useState({});
   const [cfs, setCfs] = useState({});
   const [loading, setLoading] = useState(false);
@@ -357,9 +357,19 @@ export default function Drawer({ open, onClose, lead, leads, tab, setTab, cfg, u
       setF(prev => ({ ...prev, Nombre_Persona: titleName, Telefono: cleanPhone }));
 
       await api('saveProfile', { perfil, userId: user.id });
-      await refreshLeads();
-      Swal.fire({ title: '✅ Guardado', icon: 'success', timer: 1500, showConfirmButton: false });
-      if (!lead?.ID_Contacto) onClose(); // close if it was new
+
+      if (lead?.ID_Contacto) {
+        // Optimistic update for existing contacts to avoid backend cache delays
+        if (setLeads) {
+          setLeads(prev => prev.map(l => l.ID_Contacto === lead.ID_Contacto ? { ...l, ...perfil } : l));
+        }
+        Swal.fire({ title: '✅ Guardado', icon: 'success', timer: 1500, showConfirmButton: false });
+      } else {
+        // For new contacts, we must refresh to get the generated ID_Contacto
+        await refreshLeads();
+        Swal.fire({ title: '✅ Creado', icon: 'success', timer: 1500, showConfirmButton: false });
+        onClose();
+      }
     } catch {
       Swal.fire('Error', 'No se pudo guardar', 'error');
     }

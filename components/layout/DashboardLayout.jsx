@@ -330,6 +330,7 @@ export default function DashboardLayout({ user }) {
         onClose={closeDrawer}
         lead={drawerLead}
         leads={leads}
+        setLeads={setLeads}
         tab={drawerTab}
         setTab={setDrawerTab}
         cfg={cfg}
