@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { api, logoutApi } from '@/lib/api';
 import { useRouter } from 'next/navigation';
 import Admin from '@/components/views/Admin';
@@ -16,6 +16,11 @@ export default function DashboardLayout({ user }) {
   const [activeTab, setActiveTab] = useState('dir'); // 'dir', 'unks', 'funnel', 'tasks', 'campaigns', 'admin'
   const [cfg, setCfg] = useState({});
   const [leads, setLeads] = useState([]);
+  const leadsRef = useRef([]);
+
+  useEffect(() => {
+    leadsRef.current = leads;
+  }, [leads]);
   const [loading, setLoading] = useState(true);
   const [unreads, setUnreads] = useState({});
   const [threads, setThreads] = useState([]);
@@ -97,6 +102,7 @@ export default function DashboardLayout({ user }) {
       setCfg(resCfg);
       const newLeads = resContacts.data || [];
       setLeads(newLeads);
+      leadsRef.current = newLeads; // Update ref synchronously for fetchWAData
 
       // Build a map of every user identifier -> nombre for resolving Agente_Asignado
       try {
@@ -167,13 +173,14 @@ export default function DashboardLayout({ user }) {
   }, []);
 
   async function autoLinkThreads(currentThreads) {
-    if (!leads.length || !currentThreads.length) return;
+    const currentLeads = leadsRef.current;
+    if (!currentLeads || !currentLeads.length || !currentThreads.length) return;
 
     const cleanPhoneStr = (p) => String(p || '').replace(/[\s\-\+\(\)]/g, '');
 
     // 1. Create a map of suffixes to leads that DON'T have an LID yet
     const suffixMap = {};
-    leads.forEach(l => {
+    currentLeads.forEach(l => {
       if (l.Telefono && !l.LID) {
         const suffix = cleanPhoneStr(l.Telefono).slice(-10);
         if (suffix.length >= 8) {
@@ -207,7 +214,9 @@ export default function DashboardLayout({ user }) {
         await api('saveProfile', { perfil: updatedLead, userId: user.id });
 
         // Update local state to prevent re-processing
-        setLeads(prev => prev.map(l => l.ID_Contacto === lead.ID_Contacto ? updatedLead : l));
+        const updater = prev => prev.map(l => l.ID_Contacto === lead.ID_Contacto ? updatedLead : l);
+        setLeads(updater);
+        leadsRef.current = updater(leadsRef.current);
       } catch (err) {
         console.error(`[Auto-Linker] Error linking ${lead.Nombre_Persona}:`, err);
       }
