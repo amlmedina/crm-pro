@@ -372,16 +372,6 @@ export default function Drawer({ open, onClose, lead, leads, tab, setTab, cfg, u
     
     let nuevoE = f.Estado_Funnel;
     const actual = lead.Estado_Funnel;
-    const lim = cfg.funnel?.find(x => x.stage === actual)?.limit || 0;
-
-    if (nuevoE === actual && lim > 0) {
-      let racha = 0;
-      for (const h of hist) { if (h.Estado_Momento === actual) racha++; else break; }
-      if (racha >= lim - 1) {
-        nuevoE = 'Congelado';
-        await Swal.fire({ title: '🚨 SLA', text: `Límite de strikes en "${actual}". Movido a Congelado.`, icon: 'warning' });
-      }
-    }
 
     setLoading(true);
     try {
