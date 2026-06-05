@@ -22,7 +22,7 @@ export default function Directory({
       ...(cfg.camposPersonalizados || []).map(c => ({ key: c.key, label: c.label, tipo: c.tipo, opciones: c.opciones }))
     ];
   }, [cfg]);
-  const [sortAsc, setSortAsc] = useState(true);
+
 
   // Helper for cleaning phone (same as API)
   const cleanPhoneStr = (p) => String(p || '').replace(/[\s\-\+\(\)]/g, '');
