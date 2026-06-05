@@ -8,6 +8,7 @@ export default function Funnel({ leads, cfg, user, openDrawer, setLeads, unreads
   const [draggedId, setDraggedId] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchField, setSearchField] = useState('todos');
+  const [activeFilters, setActiveFilters] = useState([]);
   const [agentFilter, setAgentFilter] = useState('todos');
 
   const filterOptions = useMemo(() => {
@@ -135,17 +136,31 @@ export default function Funnel({ leads, cfg, user, openDrawer, setLeads, unreads
 
   // Filtering: agents only see their own leads; managers can filter by agent
   const filteredLeads = leads.filter(l => {
-    const s = searchTerm.toLowerCase();
-    
     let matchSearch = true;
-    if (s) {
+
+    // Evaluate accumulated filters
+    for (const f of activeFilters) {
+      const s = f.value.toLowerCase();
+      if (f.field === 'todos') {
+        const match = Object.values(l).some(v => v !== null && v !== undefined && String(v).toLowerCase().includes(s));
+        if (!match) { matchSearch = false; break; }
+      } else {
+        const val = l[f.field];
+        const match = val !== null && val !== undefined && String(val).toLowerCase().includes(s);
+        if (!match) { matchSearch = false; break; }
+      }
+    }
+
+    // Evaluate pending search term
+    if (matchSearch && searchTerm.trim()) {
+      const s = searchTerm.trim().toLowerCase();
       if (searchField === 'todos') {
-        matchSearch = Object.values(l).some(v => 
-          v !== null && v !== undefined && String(v).toLowerCase().includes(s)
-        );
+        const match = Object.values(l).some(v => v !== null && v !== undefined && String(v).toLowerCase().includes(s));
+        if (!match) matchSearch = false;
       } else {
         const val = l[searchField];
-        matchSearch = val !== null && val !== undefined && String(val).toLowerCase().includes(s);
+        const match = val !== null && val !== undefined && String(val).toLowerCase().includes(s);
+        if (!match) matchSearch = false;
       }
     }
 
@@ -236,13 +251,51 @@ export default function Funnel({ leads, cfg, user, openDrawer, setLeads, unreads
                 placeholder="Buscar contacto..."
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && searchTerm.trim()) {
+                    e.preventDefault();
+                    const selectedOpt = filterOptions.find(o => o.key === searchField);
+                    setActiveFilters([...activeFilters, {
+                      id: Date.now(),
+                      field: searchField,
+                      label: selectedOpt ? selectedOpt.label : 'Filtro',
+                      value: searchTerm.trim()
+                    }]);
+                    setSearchTerm('');
+                  }
+                }}
                 style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: '0.9rem', color: 'var(--text)', padding: '4px 0' }}
               />
             );
           })()}
+          
           {searchTerm && (
-            <button onClick={() => setSearchTerm('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: '0.85rem' }}>✕</button>
+            <button onClick={() => setSearchTerm('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: '0.85rem', marginRight: '6px' }} title="Limpiar">✕</button>
           )}
+
+          <button 
+            onClick={() => {
+              if (!searchTerm.trim()) return;
+              const selectedOpt = filterOptions.find(o => o.key === searchField);
+              setActiveFilters([...activeFilters, {
+                id: Date.now(),
+                field: searchField,
+                label: selectedOpt ? selectedOpt.label : 'Filtro',
+                value: searchTerm.trim()
+              }]);
+              setSearchTerm('');
+            }} 
+            disabled={!searchTerm.trim()}
+            style={{ 
+              background: searchTerm.trim() ? 'var(--accent)' : 'var(--brd)', 
+              border: 'none', cursor: searchTerm.trim() ? 'pointer' : 'not-allowed', 
+              color: '#fff', fontSize: '1.2rem', padding: '0 10px', borderRadius: '6px', 
+              height: '28px', display: 'flex', alignItems: 'center' 
+            }}
+            title="Añadir Filtro"
+          >
+            +
+          </button>
         </div>
 
         {/* Agent filter — Managers only */}
@@ -281,6 +334,38 @@ export default function Funnel({ leads, cfg, user, openDrawer, setLeads, unreads
           )}
         </div>
       </div>
+
+      {/* Active Filters Badges */}
+      {activeFilters.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', padding: '0 4px' }}>
+          {activeFilters.map(f => (
+            <div key={f.id} style={{
+              display: 'flex', alignItems: 'center', background: 'var(--s1)', 
+              border: '1px solid var(--accent)', borderRadius: '20px', 
+              padding: '4px 12px', fontSize: '0.8rem', color: 'var(--text)'
+            }}>
+              <span style={{ fontWeight: 600, marginRight: '4px' }}>{f.label}:</span>
+              <span>{f.value}</span>
+              <button 
+                onClick={() => setActiveFilters(activeFilters.filter(af => af.id !== f.id))}
+                style={{ 
+                  background: 'none', border: 'none', color: 'var(--muted)', 
+                  cursor: 'pointer', marginLeft: '6px', fontSize: '0.75rem', padding: '0 2px' 
+                }}
+              >✕</button>
+            </div>
+          ))}
+          <button 
+            onClick={() => setActiveFilters([])}
+            style={{ 
+              background: 'none', border: 'none', color: 'var(--danger)', 
+              fontSize: '0.8rem', cursor: 'pointer', marginLeft: '4px', textDecoration: 'underline'
+            }}
+          >
+            Limpiar todos
+          </button>
+        </div>
+      )}
 
       {/* Floating Action Bar for Bulk Selection */}
       {selectedLeads.size > 0 && (
