@@ -8,6 +8,7 @@ import Directory from '@/components/views/Directory';
 import Funnel from '@/components/views/Funnel';
 import Tasks from '@/components/views/Tasks';
 import Campaigns from '@/components/views/Campaigns';
+import Reports from '@/components/views/Reports';
 import Drawer from '@/components/ui/Drawer';
 import { THEMES, applyTheme, loadSavedTheme, THEME_STORAGE_KEY } from '@/lib/themes';
 
@@ -243,7 +244,10 @@ export default function DashboardLayout({ user }) {
           <button className={`tab ${activeTab === 'tasks' ? 'on' : ''}`} onClick={() => setActiveTab('tasks')}>✅ Tareas</button>
           <button className={`tab ${activeTab === 'campaigns' ? 'on' : ''}`} onClick={() => setActiveTab('campaigns')}>📣 Campañas</button>
           {user.rol === 'Gerente' && (
-            <button className={`tab tadm ${activeTab === 'admin' ? 'on' : ''}`} onClick={() => setActiveTab('admin')}>Admin</button>
+            <>
+              <button className={`tab ${activeTab === 'reports' ? 'on' : ''}`} onClick={() => setActiveTab('reports')}>📊 Reportes</button>
+              <button className={`tab tadm ${activeTab === 'admin' ? 'on' : ''}`} onClick={() => setActiveTab('admin')}>⚙️ Admin</button>
+            </>
           )}
         </div>
         <div id="nuser">
@@ -317,9 +321,14 @@ export default function DashboardLayout({ user }) {
           </div>
 
           {user.rol === 'Gerente' && (
-            <div style={{ display: activeTab === 'admin' ? 'flex' : 'none', flex: 1, overflowY: 'auto' }}>
-              <Admin cfg={cfg} setCfg={setCfg} currentTheme={currentTheme} changeTheme={changeTheme} />
-            </div>
+            <>
+              <div style={{ display: activeTab === 'reports' ? 'flex' : 'none', flex: 1, overflowY: 'auto' }}>
+                <Reports leads={leads} cfg={cfg} />
+              </div>
+              <div style={{ display: activeTab === 'admin' ? 'flex' : 'none', flex: 1, overflowY: 'auto' }}>
+                <Admin cfg={cfg} setCfg={setCfg} currentTheme={currentTheme} changeTheme={changeTheme} />
+              </div>
+            </>
           )}
         </>
       )}
