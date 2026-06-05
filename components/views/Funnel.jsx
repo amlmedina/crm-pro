@@ -10,6 +10,7 @@ export default function Funnel({ leads, cfg, user, openDrawer, setLeads, unreads
   const [agentFilter, setAgentFilter] = useState('todos');
   const [selectedLeads, setSelectedLeads] = useState(new Set());
   const [bulkDestStage, setBulkDestStage] = useState('');
+  const [lastSelectedId, setLastSelectedId] = useState(null);
 
   const isManager = user.rol === 'Gerente' || user.rol === 'Administrador';
 
@@ -124,9 +125,9 @@ export default function Funnel({ leads, cfg, user, openDrawer, setLeads, unreads
   // Filtering: agents only see their own leads; managers can filter by agent
   const filteredLeads = leads.filter(l => {
     const s = searchTerm.toLowerCase();
-    const matchSearch =
-      (l.Nombre_Persona || '').toLowerCase().includes(s) ||
-      (l.Telefono || '').includes(s);
+    const matchSearch = Object.values(l).some(v => 
+      v !== null && v !== undefined && String(v).toLowerCase().includes(s)
+    );
 
     let matchAgent = true;
     if (!isManager) {
@@ -142,6 +143,14 @@ export default function Funnel({ leads, cfg, user, openDrawer, setLeads, unreads
   });
 
   const frozenLeads = filteredLeads.filter(l => l.Estado_Funnel === 'Congelado');
+
+  const orderedVisibleIds = useMemo(() => {
+    const ids = [];
+    activeStages.forEach(f => {
+      filteredLeads.filter(l => l.Estado_Funnel === f.stage).forEach(l => ids.push(l.ID_Contacto));
+    });
+    return ids;
+  }, [filteredLeads, activeStages]);
 
   const activeLabel = isManager
     ? (agentFilter === 'todos' ? 'Todo el equipo' : agentFilter === '__sin_asignar__' ? 'Sin Asignar' : agentFilter)
@@ -304,9 +313,30 @@ export default function Funnel({ leads, cfg, user, openDrawer, setLeads, unreads
                         type="checkbox" 
                         checked={selectedLeads.has(l.ID_Contacto)}
                         onChange={(e) => {
+                          const isChecked = e.target.checked;
                           const newSet = new Set(selectedLeads);
-                          if (e.target.checked) newSet.add(l.ID_Contacto);
-                          else newSet.delete(l.ID_Contacto);
+                          
+                          if (isChecked) {
+                            if (e.nativeEvent.shiftKey && lastSelectedId) {
+                              const startIdx = orderedVisibleIds.indexOf(lastSelectedId);
+                              const endIdx = orderedVisibleIds.indexOf(l.ID_Contacto);
+                              if (startIdx !== -1 && endIdx !== -1) {
+                                const start = Math.min(startIdx, endIdx);
+                                const end = Math.max(startIdx, endIdx);
+                                for (let i = start; i <= end; i++) {
+                                  newSet.add(orderedVisibleIds[i]);
+                                }
+                              } else {
+                                newSet.add(l.ID_Contacto);
+                              }
+                            } else {
+                              newSet.add(l.ID_Contacto);
+                            }
+                            setLastSelectedId(l.ID_Contacto);
+                          } else {
+                            newSet.delete(l.ID_Contacto);
+                            setLastSelectedId(null);
+                          }
                           setSelectedLeads(newSet);
                         }}
                         onClick={e => e.stopPropagation()}

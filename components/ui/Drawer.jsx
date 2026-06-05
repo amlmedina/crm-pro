@@ -19,6 +19,19 @@ export default function Drawer({ open, onClose, lead, leads, setLeads, tab, setT
     }
   }, [user]);
 
+  // Handle ESC key to close drawer
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && open) {
+        if (!Swal.isVisible()) {
+          onClose();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [open, onClose]);
+
   // ── WhatsApp State ──────────────────────────────────────
   const [waMessages, setWaMessages]   = useState([]);
   const [waLoadingHist, setWaLoadingHist] = useState(false);
