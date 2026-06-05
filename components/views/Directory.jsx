@@ -7,8 +7,21 @@ export default function Directory({
   selectedForCampaign = [], setSelectedForCampaign, onGoToCampaign, isCensored
 }) {
   const [q, setQ] = useState('');
+  const [searchField, setSearchField] = useState('todos');
+  const [activeFilters, setActiveFilters] = useState([]);
   const [cpOpen, setCpOpen] = useState(false);
   const [sortCol, setSortCol] = useState('ID_Contacto');
+  const [sortAsc, setSortAsc] = useState(true);
+
+  const filterOptions = useMemo(() => {
+    return [
+      { key: 'todos', label: 'Todos los campos' },
+      { key: 'Nombre_Persona', label: 'Nombre' },
+      { key: 'Telefono', label: 'Teléfono' },
+      { key: 'Correo_Corp', label: 'Correo' },
+      ...(cfg.camposPersonalizados || []).map(c => ({ key: c.key, label: c.label, tipo: c.tipo, opciones: c.opciones }))
+    ];
+  }, [cfg]);
   const [sortAsc, setSortAsc] = useState(true);
 
   // Helper for cleaning phone (same as API)
@@ -75,12 +88,48 @@ export default function Directory({
        fullList = [...leads, ...unknownLeads].filter(l => l.Estado_Funnel !== 'Congelado');
     }
 
-    if (q.trim()) {
-      const qs = q.toLowerCase();
-      fullList = fullList.filter(l => 
-        Object.values(l).some(v => v && String(v).toLowerCase().includes(qs))
-      );
-    }
+    // Filter by activeFilters and q
+    fullList = fullList.filter(l => {
+      let matchSearch = true;
+
+      const filtersByField = {};
+      activeFilters.forEach(f => {
+        if (!filtersByField[f.field]) filtersByField[f.field] = [];
+        filtersByField[f.field].push(f);
+      });
+
+      for (const field in filtersByField) {
+        const groupFilters = filtersByField[field];
+        let matchField = false;
+
+        for (const f of groupFilters) {
+          const s = f.value.toLowerCase();
+          if (field === 'todos') {
+            const match = Object.values(l).some(v => v !== null && v !== undefined && String(v).toLowerCase().includes(s));
+            if (match) { matchField = true; break; }
+          } else {
+            const val = l[field];
+            const match = val !== null && val !== undefined && String(val).toLowerCase().includes(s);
+            if (match) { matchField = true; break; }
+          }
+        }
+        if (!matchField) { matchSearch = false; break; }
+      }
+
+      if (matchSearch && q.trim()) {
+        const s = q.trim().toLowerCase();
+        if (searchField === 'todos') {
+          const match = Object.values(l).some(v => v !== null && v !== undefined && String(v).toLowerCase().includes(s));
+          if (!match) matchSearch = false;
+        } else {
+          const val = l[searchField];
+          const match = val !== null && val !== undefined && String(val).toLowerCase().includes(s);
+          if (!match) matchSearch = false;
+        }
+      }
+
+      return matchSearch;
+    });
     
     fullList.sort((a, b) => {
       let va = a[sortCol] || '';
@@ -116,8 +165,106 @@ export default function Directory({
         </div>
       </div>
 
-      <div id="toolbar">
-        <input type="text" id="q" placeholder="🔍 Buscar por nombre, empresa..." value={q} onChange={e => setQ(e.target.value)} />
+      <div id="toolbar" style={{ flexWrap: 'wrap', gap: '10px' }}>
+        <div style={{ flex: 1, minWidth: '300px', display: 'flex', alignItems: 'center', background: 'var(--s1)', padding: '8px 16px', borderRadius: '10px', border: '1px solid var(--brd)', boxShadow: '0 2px 6px rgba(0,0,0,0.05)' }}>
+          <span style={{ marginRight: '10px', fontSize: '1.1rem' }}>🔍</span>
+          
+          <select 
+            value={searchField}
+            onChange={e => {
+              setSearchField(e.target.value);
+              setQ('');
+            }}
+            style={{ 
+              background: 'var(--s2)', border: '1px solid var(--brd)', outline: 'none', 
+              fontSize: '0.85rem', color: 'var(--text)', cursor: 'pointer',
+              padding: '4px 8px', borderRadius: '6px', marginRight: '10px'
+            }}
+          >
+            {filterOptions.map(opt => (
+              <option key={opt.key} value={opt.key}>{opt.label}</option>
+            ))}
+          </select>
+
+          {(() => {
+            const selectedOpt = filterOptions.find(o => o.key === searchField);
+            if (selectedOpt?.tipo === 'select') {
+              return (
+                <select
+                  value={q}
+                  onChange={e => setQ(e.target.value)}
+                  style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: '0.9rem', color: 'var(--text)', padding: '4px 0' }}
+                >
+                  <option value="">(Cualquiera)</option>
+                  {selectedOpt.opciones?.map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
+              );
+            }
+            if (selectedOpt?.tipo === 'bool') {
+              return (
+                <select
+                  value={q}
+                  onChange={e => setQ(e.target.value)}
+                  style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: '0.9rem', color: 'var(--text)', padding: '4px 0' }}
+                >
+                  <option value="">(Cualquiera)</option>
+                  <option value="Sí">Sí</option>
+                  <option value="No">No</option>
+                </select>
+              );
+            }
+            return (
+              <input
+                type="text"
+                placeholder="Buscar contacto..."
+                value={q}
+                onChange={e => setQ(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && q.trim()) {
+                    e.preventDefault();
+                    const selectedOpt = filterOptions.find(o => o.key === searchField);
+                    setActiveFilters([...activeFilters, {
+                      id: Date.now(),
+                      field: searchField,
+                      label: selectedOpt ? selectedOpt.label : 'Filtro',
+                      value: q.trim()
+                    }]);
+                    setQ('');
+                  }
+                }}
+                style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: '0.9rem', color: 'var(--text)', padding: '4px 0' }}
+              />
+            );
+          })()}
+          
+          {q && (
+            <button onClick={() => setQ('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: '0.85rem', marginRight: '6px' }} title="Limpiar">✕</button>
+          )}
+
+          <button 
+            onClick={() => {
+              if (!q.trim()) return;
+              const selectedOpt = filterOptions.find(o => o.key === searchField);
+              setActiveFilters([...activeFilters, {
+                id: Date.now(),
+                field: searchField,
+                label: selectedOpt ? selectedOpt.label : 'Filtro',
+                value: q.trim()
+              }]);
+              setQ('');
+            }} 
+            disabled={!q.trim()}
+            style={{ 
+              background: q.trim() ? 'var(--accent)' : 'var(--brd)', 
+              border: 'none', cursor: q.trim() ? 'pointer' : 'not-allowed', 
+              color: '#fff', fontSize: '1.2rem', padding: '0 10px', borderRadius: '6px', 
+              height: '28px', display: 'flex', alignItems: 'center' 
+            }}
+            title="Añadir Filtro"
+          >
+            +
+          </button>
+        </div>
         <div id="cpwrap">
           <button className="btn btngh" onClick={() => setCpOpen(!cpOpen)}>Columnas ▼</button>
           {cpOpen && (
@@ -133,6 +280,38 @@ export default function Directory({
         </div>
         <button className="btn btng" onClick={() => openDrawer()}>+ Nuevo Prospecto</button>
       </div>
+
+      {/* Active Filters Badges */}
+      {activeFilters.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', padding: '0 20px', marginBottom: '15px' }}>
+          {activeFilters.map(f => (
+            <div key={f.id} style={{
+              display: 'flex', alignItems: 'center', background: 'var(--s1)', 
+              border: '1px solid var(--accent)', borderRadius: '20px', 
+              padding: '4px 12px', fontSize: '0.8rem', color: 'var(--text)'
+            }}>
+              <span style={{ fontWeight: 600, marginRight: '4px' }}>{f.label}:</span>
+              <span>{f.value}</span>
+              <button 
+                onClick={() => setActiveFilters(activeFilters.filter(af => af.id !== f.id))}
+                style={{ 
+                  background: 'none', border: 'none', color: 'var(--muted)', 
+                  cursor: 'pointer', marginLeft: '6px', fontSize: '0.75rem', padding: '0 2px' 
+                }}
+              >✕</button>
+            </div>
+          ))}
+          <button 
+            onClick={() => setActiveFilters([])}
+            style={{ 
+              background: 'none', border: 'none', color: 'var(--danger)', 
+              fontSize: '0.8rem', cursor: 'pointer', marginLeft: '4px', textDecoration: 'underline'
+            }}
+          >
+            Limpiar todos
+          </button>
+        </div>
+      )}
 
       <div id="twrap">
         <table id="tbl">
