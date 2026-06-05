@@ -138,16 +138,33 @@ export default function Funnel({ leads, cfg, user, openDrawer, setLeads, unreads
   const filteredLeads = leads.filter(l => {
     let matchSearch = true;
 
-    // Evaluate accumulated filters
-    for (const f of activeFilters) {
-      const s = f.value.toLowerCase();
-      if (f.field === 'todos') {
-        const match = Object.values(l).some(v => v !== null && v !== undefined && String(v).toLowerCase().includes(s));
-        if (!match) { matchSearch = false; break; }
-      } else {
-        const val = l[f.field];
-        const match = val !== null && val !== undefined && String(val).toLowerCase().includes(s);
-        if (!match) { matchSearch = false; break; }
+    // Group active filters by field
+    const filtersByField = {};
+    activeFilters.forEach(f => {
+      if (!filtersByField[f.field]) filtersByField[f.field] = [];
+      filtersByField[f.field].push(f);
+    });
+
+    // Evaluate accumulated filters (AND across fields, OR within same field)
+    for (const field in filtersByField) {
+      const groupFilters = filtersByField[field];
+      let matchField = false;
+
+      for (const f of groupFilters) {
+        const s = f.value.toLowerCase();
+        if (field === 'todos') {
+          const match = Object.values(l).some(v => v !== null && v !== undefined && String(v).toLowerCase().includes(s));
+          if (match) { matchField = true; break; }
+        } else {
+          const val = l[field];
+          const match = val !== null && val !== undefined && String(val).toLowerCase().includes(s);
+          if (match) { matchField = true; break; }
+        }
+      }
+
+      if (!matchField) {
+        matchSearch = false;
+        break;
       }
     }
 
