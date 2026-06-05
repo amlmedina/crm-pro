@@ -44,12 +44,27 @@ export default function DashboardLayout({ user }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerLead, setDrawerLead] = useState(null);
   const [drawerTab, setDrawerTab] = useState('perfil');
+  const [drawerQueue, setDrawerQueue] = useState([]); // ordered list of leads for queue mode
+  const [drawerQueueIdx, setDrawerQueueIdx] = useState(-1);
 
   function openDrawer(lead = null, tab = 'perfil') {
     setDrawerLead(lead);
     setDrawerTab(tab);
+    setDrawerQueue([]);
+    setDrawerQueueIdx(-1);
     setDrawerOpen(true);
   }
+
+  // Used by Funnel — enables queue/auto-advance mode
+  function openDrawerInQueue(lead, orderedList) {
+    const idx = orderedList.findIndex(l => l.ID_Contacto === lead.ID_Contacto);
+    setDrawerLead(lead);
+    setDrawerTab('int');
+    setDrawerQueue(orderedList);
+    setDrawerQueueIdx(idx);
+    setDrawerOpen(true);
+  }
+
   function closeDrawer() {
     setDrawerOpen(false);
   }
@@ -309,7 +324,19 @@ export default function DashboardLayout({ user }) {
           </div>
 
           <div style={{ display: activeTab === 'funnel' ? 'block' : 'none', flex: 1, overflowY: 'auto' }}>
-            <Funnel leads={leads} setLeads={setLeads} cfg={cfg} loading={loading} refreshLeads={initApp} openDrawer={openDrawer} user={user} unreads={unreads} isCensored={isCensored} usersMap={usersMap} />
+            <Funnel
+              leads={leads}
+              setLeads={setLeads}
+              cfg={cfg}
+              loading={loading}
+              refreshLeads={initApp}
+              openDrawer={openDrawer}
+              openDrawerInQueue={openDrawerInQueue}
+              user={user}
+              unreads={unreads}
+              isCensored={isCensored}
+              usersMap={usersMap}
+            />
           </div>
 
           <div style={{ display: activeTab === 'tasks' ? 'flex' : 'none', flex: 1, overflow: 'hidden' }}>
@@ -346,6 +373,13 @@ export default function DashboardLayout({ user }) {
         user={user}
         refreshLeads={initApp}
         isCensored={isCensored}
+        drawerQueue={drawerQueue}
+        drawerQueueIdx={drawerQueueIdx}
+        onAdvanceQueue={(nextLead, nextIdx) => {
+          setDrawerLead(nextLead);
+          setDrawerQueueIdx(nextIdx);
+          setDrawerTab('int');
+        }}
       />
     </div>
   );

@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react';
 import { api } from '@/lib/api';
 import Swal from 'sweetalert2';
 
-export default function Funnel({ leads, cfg, user, openDrawer, setLeads, unreads, usersMap = {}, refreshLeads }) {
+export default function Funnel({ leads, cfg, user, openDrawer, openDrawerInQueue, setLeads, unreads, usersMap = {}, refreshLeads }) {
   const [draggedId, setDraggedId] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchField, setSearchField] = useState('todos');
@@ -476,7 +476,7 @@ export default function Funnel({ leads, cfg, user, openDrawer, setLeads, unreads
                       key={l.ID_Contacto}
                       draggable
                       onDragStart={(e) => handleDragStart(e, l.ID_Contacto)}
-                      onClick={() => openDrawer(l)}
+                      onClick={() => (openDrawerInQueue || openDrawer)(l, filteredLeads)}
                       style={{ borderLeftColor: getAgentColor(resolveName(l.Agente_Asignado)), position: 'relative' }}
                     >
                       <input 

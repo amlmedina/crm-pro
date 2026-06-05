@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { api } from '@/lib/api';
 import Swal from 'sweetalert2';
 
-export default function Drawer({ open, onClose, lead, leads, setLeads, tab, setTab, cfg, user, refreshLeads, isCensored }) {
+export default function Drawer({ open, onClose, lead, leads, setLeads, tab, setTab, cfg, user, refreshLeads, isCensored, drawerQueue = [], drawerQueueIdx = -1, onAdvanceQueue }) {
   const [f, setF] = useState({});
   const [cfs, setCfs] = useState({});
   const [loading, setLoading] = useState(false);
@@ -401,21 +401,47 @@ export default function Drawer({ open, onClose, lead, leads, setLeads, tab, setT
     if (!notas.trim()) { showToast('Escribe una nota primero', 'err'); return; }
     
     const nuevoE = f.Estado_Funnel;
+    const savedNotas = notas;
+    const savedLead = lead;
 
-    setLoading(true);
-    try {
-      await api('saveInteraction', { idContacto: lead.ID_Contacto, nuevoEstado: nuevoE, notas, nombreUsuario: user.nombre });
-      // Optimistic UI: add to history immediately
-      setHist(prev => [{ Fecha_Hora: new Date().toISOString(), Estado_Momento: nuevoE, Notas: notas, ID_Usuario: user.nombre }, ...prev]);
-      setNotas('');
-      if (notasRef.current) notasRef.current.focus();
-      showToast('✅ Interacción registrada');
-      refreshLeads();
-      loadHistorial(lead.ID_Contacto);
-    } catch {
-      showToast('Error al guardar', 'err');
+    // 1. Immediately update UI: clear notes, update local history, advance to next in queue
+    setHist(prev => [{ Fecha_Hora: new Date().toISOString(), Estado_Momento: nuevoE, Notas: savedNotas, ID_Usuario: user.nombre }, ...prev]);
+    setNotas('');
+
+    // 2. Optimistic local update of leads state (no full reload)
+    if (setLeads) {
+      setLeads(prev => prev.map(l =>
+        l.ID_Contacto === savedLead.ID_Contacto
+          ? { ...l, Estado_Funnel: nuevoE }
+          : l
+      ));
     }
-    setLoading(false);
+
+    // 3. Auto-advance to next lead in queue (if in Funnel queue mode)
+    if (drawerQueue.length > 0 && onAdvanceQueue) {
+      const nextIdx = drawerQueueIdx + 1;
+      const nextLead = drawerQueue[nextIdx];
+      if (nextLead) {
+        showToast(`✅ Guardado • Abriendo ${nextLead.Nombre_Persona || 'siguiente'}...`);
+        setTimeout(() => {
+          onAdvanceQueue(nextLead, nextIdx);
+          if (notasRef.current) notasRef.current.focus();
+        }, 120);
+      } else {
+        showToast('✅ Último contacto de la lista registrado');
+      }
+    } else {
+      showToast('✅ Interacción registrada');
+      if (notasRef.current) notasRef.current.focus();
+    }
+
+    // 4. Persist to backend in background (non-blocking)
+    try {
+      await api('saveInteraction', { idContacto: savedLead.ID_Contacto, nuevoEstado: nuevoE, notas: savedNotas, nombreUsuario: user.nombre });
+      loadHistorial(savedLead.ID_Contacto);
+    } catch {
+      showToast('Error sincronizando con el servidor', 'err');
+    }
   }
 
   async function copyEmail(ev) {
