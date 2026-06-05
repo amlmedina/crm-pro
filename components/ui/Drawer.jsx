@@ -12,6 +12,13 @@ export default function Drawer({ open, onClose, lead, leads, setLeads, tab, setT
   const [loadingHist, setLoadingHist] = useState(false);
   const [notas, setNotas] = useState('');
   const [usersList, setUsersList] = useState([]);
+  const [toast, setToast] = useState(null); // { msg, type: 'ok'|'err' }
+  const notasRef = useRef(null);
+
+  function showToast(msg, type = 'ok') {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
+  }
 
   useEffect(() => {
     if (user.rol === 'Gerente' || user.rol === 'Administrador') {
@@ -390,22 +397,23 @@ export default function Drawer({ open, onClose, lead, leads, setLeads, tab, setT
   }
 
   async function doSaveInt() {
-    if (!lead?.ID_Contacto) return Swal.fire('Sin ID', 'Guarda el perfil primero', 'info');
-    if (!notas.trim()) return Swal.fire('Requerido', 'Escribe notas de la interacción', 'warning');
+    if (!lead?.ID_Contacto) { showToast('Guarda el perfil primero', 'err'); return; }
+    if (!notas.trim()) { showToast('Escribe una nota primero', 'err'); return; }
     
-    let nuevoE = f.Estado_Funnel;
-    const actual = lead.Estado_Funnel;
+    const nuevoE = f.Estado_Funnel;
 
     setLoading(true);
     try {
       await api('saveInteraction', { idContacto: lead.ID_Contacto, nuevoEstado: nuevoE, notas, nombreUsuario: user.nombre });
-      await refreshLeads();
-      setF({ ...f, Estado_Funnel: nuevoE });
+      // Optimistic UI: add to history immediately
+      setHist(prev => [{ Fecha_Hora: new Date().toISOString(), Estado_Momento: nuevoE, Notas: notas, ID_Usuario: user.nombre }, ...prev]);
       setNotas('');
-      await loadHistorial(lead.ID_Contacto);
-      Swal.fire({ title: '✅ Registrado', icon: 'success', timer: 1500, showConfirmButton: false });
+      if (notasRef.current) notasRef.current.focus();
+      showToast('✅ Interacción registrada');
+      refreshLeads();
+      loadHistorial(lead.ID_Contacto);
     } catch {
-      Swal.fire('Error', 'Hubo un problema', 'error');
+      showToast('Error al guardar', 'err');
     }
     setLoading(false);
   }
@@ -446,7 +454,7 @@ export default function Drawer({ open, onClose, lead, leads, setLeads, tab, setT
         <div id="drbody">
           <div className="dtabs">
             <button className={`dtab ${tab === 'perfil' ? 'on' : ''}`} onClick={() => setTab('perfil')}>Perfil</button>
-            <button className={`dtab ${tab === 'int' ? 'on' : ''}`} onClick={() => setTab('int')}>Interacción</button>
+            <button className={`dtab ${tab === 'int' ? 'on' : ''}`} onClick={() => { setTab('int'); setTimeout(() => notasRef.current?.focus(), 80); }}>Interacción</button>
             <button className={`dtab ${tab === 'hist' ? 'on' : ''}`} onClick={() => setTab('hist')}>Historial</button>
             {(lead?.Telefono || lead?.LID) && (
               <button className={`dtab ${tab === 'wa' ? 'on' : ''}`} onClick={() => setTab('wa')} style={{ color: tab === 'wa' ? '#25d366' : undefined }}>
@@ -533,21 +541,74 @@ export default function Drawer({ open, onClose, lead, leads, setLeads, tab, setT
           </div>
 
           <div className={`dpanel ${tab === 'int' ? 'on' : ''}`}>
-             <p className="stitle">Registrar Interacción</p>
-             <div className="fg">
-                <label>Estado</label>
-                <select value={f.Estado_Funnel} onChange={e => setF({...f, Estado_Funnel: e.target.value})}>
-                   {cfg.funnel?.map(x => <option key={x.stage} value={x.stage}>{x.stage}</option>)}
-                   <option value="Congelado">❄️ Congelado</option>
-                </select>
-             </div>
-             <div className="fg">
-                <label>Notas</label>
-                <textarea value={notas} onChange={e => setNotas(e.target.value)} placeholder="Agrega notas descriptivas..."></textarea>
-             </div>
-             <button className="btn btny btnw" style={{marginTop:'10px'}} onClick={doSaveInt} disabled={loading}>
-               {loading ? 'Registrando...' : '⚡ Registrar Interacción'}
-             </button>
+            <p className="stitle">Registrar Interacción</p>
+
+            <div className="fg" style={{ marginBottom: '10px' }}>
+              <label style={{ marginBottom: '6px', display: 'block' }}>Estado</label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                {cfg.funnel?.map(x => (
+                  <button
+                    key={x.stage}
+                    onClick={() => setF({ ...f, Estado_Funnel: x.stage })}
+                    style={{
+                      padding: '5px 12px',
+                      borderRadius: '20px',
+                      border: `2px solid ${f.Estado_Funnel === x.stage ? 'var(--accent)' : 'var(--brd)'}`,
+                      background: f.Estado_Funnel === x.stage ? 'var(--accent)' : 'var(--s2)',
+                      color: f.Estado_Funnel === x.stage ? '#fff' : 'var(--text)',
+                      cursor: 'pointer',
+                      fontSize: '0.8rem',
+                      fontWeight: f.Estado_Funnel === x.stage ? 700 : 400,
+                      transition: 'all 0.15s'
+                    }}
+                  >
+                    {x.stage}
+                  </button>
+                ))}
+                <button
+                  onClick={() => setF({ ...f, Estado_Funnel: 'Congelado' })}
+                  style={{
+                    padding: '5px 12px',
+                    borderRadius: '20px',
+                    border: `2px solid ${f.Estado_Funnel === 'Congelado' ? '#93c5fd' : 'var(--brd)'}`,
+                    background: f.Estado_Funnel === 'Congelado' ? '#1d4ed8' : 'var(--s2)',
+                    color: f.Estado_Funnel === 'Congelado' ? '#fff' : 'var(--text)',
+                    cursor: 'pointer',
+                    fontSize: '0.8rem',
+                    fontWeight: f.Estado_Funnel === 'Congelado' ? 700 : 400,
+                    transition: 'all 0.15s'
+                  }}
+                >
+                  ❄️ Congelado
+                </button>
+              </div>
+            </div>
+
+            <div className="fg">
+              <label style={{ marginBottom: '6px', display: 'block' }}>Notas <span style={{ color: 'var(--muted)', fontWeight: 400, fontSize: '0.75rem' }}>· Cmd/Ctrl+Enter para guardar</span></label>
+              <textarea
+                ref={notasRef}
+                value={notas}
+                onChange={e => setNotas(e.target.value)}
+                placeholder="¿Qué pasó en este contacto?"
+                style={{ minHeight: '100px', resize: 'vertical' }}
+                onKeyDown={e => {
+                  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                    e.preventDefault();
+                    doSaveInt();
+                  }
+                }}
+              />
+            </div>
+
+            <button
+              className="btn btny btnw"
+              style={{ marginTop: '10px', opacity: loading ? 0.6 : 1 }}
+              onClick={doSaveInt}
+              disabled={loading}
+            >
+              {loading ? 'Registrando...' : '⚡ Registrar'}
+            </button>
           </div>
 
           <div className={`dpanel ${tab === 'hist' ? 'on' : ''}`}>
@@ -705,6 +766,43 @@ export default function Drawer({ open, onClose, lead, leads, setLeads, tab, setT
 
         </div>
       </div>
+
+      {/* iPhone-style Toast */}
+      <div style={{
+        position: 'fixed',
+        bottom: '32px',
+        right: '24px',
+        zIndex: 99999,
+        pointerEvents: 'none',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'flex-end',
+        gap: '8px'
+      }}>
+        {toast && (
+          <div style={{
+            background: toast.type === 'err' ? 'rgba(239,68,68,0.92)' : 'rgba(17,24,39,0.88)',
+            backdropFilter: 'blur(12px)',
+            color: '#fff',
+            padding: '10px 18px',
+            borderRadius: '14px',
+            fontSize: '0.88rem',
+            fontWeight: 600,
+            boxShadow: '0 8px 30px rgba(0,0,0,0.25)',
+            animation: 'toastIn 0.25s ease',
+            whiteSpace: 'nowrap'
+          }}>
+            {toast.msg}
+          </div>
+        )}
+      </div>
+
+      <style>{`
+        @keyframes toastIn {
+          from { opacity: 0; transform: translateY(12px) scale(0.95); }
+          to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+      `}</style>
     </>
   );
 }
