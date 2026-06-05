@@ -16,7 +16,7 @@ export default function Funnel({ leads, cfg, user, openDrawer, setLeads, unreads
       { key: 'Nombre_Persona', label: 'Nombre' },
       { key: 'Telefono', label: 'Teléfono' },
       { key: 'Correo_Corp', label: 'Correo' },
-      ...(cfg.camposPersonalizados || []).map(c => ({ key: c.key, label: c.label }))
+      ...(cfg.camposPersonalizados || []).map(c => ({ key: c.key, label: c.label, tipo: c.tipo, opciones: c.opciones }))
     ];
   }, [cfg]);
   const [selectedLeads, setSelectedLeads] = useState(new Set());
@@ -188,7 +188,10 @@ export default function Funnel({ leads, cfg, user, openDrawer, setLeads, unreads
           
           <select 
             value={searchField}
-            onChange={e => setSearchField(e.target.value)}
+            onChange={e => {
+              setSearchField(e.target.value);
+              setSearchTerm('');
+            }}
             style={{ 
               background: 'var(--s2)', border: '1px solid var(--brd)', outline: 'none', 
               fontSize: '0.85rem', color: 'var(--text)', cursor: 'pointer',
@@ -200,13 +203,43 @@ export default function Funnel({ leads, cfg, user, openDrawer, setLeads, unreads
             ))}
           </select>
 
-          <input
-            type="text"
-            placeholder="Buscar contacto..."
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: '0.9rem', color: 'var(--text)', padding: '4px 0' }}
-          />
+          {(() => {
+            const selectedOpt = filterOptions.find(o => o.key === searchField);
+            if (selectedOpt?.tipo === 'select') {
+              return (
+                <select
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                  style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: '0.9rem', color: 'var(--text)', padding: '4px 0' }}
+                >
+                  <option value="">(Cualquiera)</option>
+                  {selectedOpt.opciones?.map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
+              );
+            }
+            if (selectedOpt?.tipo === 'bool') {
+              return (
+                <select
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                  style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: '0.9rem', color: 'var(--text)', padding: '4px 0' }}
+                >
+                  <option value="">(Cualquiera)</option>
+                  <option value="Sí">Sí</option>
+                  <option value="No">No</option>
+                </select>
+              );
+            }
+            return (
+              <input
+                type="text"
+                placeholder="Buscar contacto..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: '0.9rem', color: 'var(--text)', padding: '4px 0' }}
+              />
+            );
+          })()}
           {searchTerm && (
             <button onClick={() => setSearchTerm('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: '0.85rem' }}>✕</button>
           )}
