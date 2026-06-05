@@ -7,7 +7,18 @@ import Swal from 'sweetalert2';
 export default function Funnel({ leads, cfg, user, openDrawer, setLeads, unreads, usersMap = {}, refreshLeads }) {
   const [draggedId, setDraggedId] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [searchField, setSearchField] = useState('todos');
   const [agentFilter, setAgentFilter] = useState('todos');
+
+  const filterOptions = useMemo(() => {
+    return [
+      { key: 'todos', label: 'Todos los campos' },
+      { key: 'Nombre_Persona', label: 'Nombre' },
+      { key: 'Telefono', label: 'Teléfono' },
+      { key: 'Correo_Corp', label: 'Correo' },
+      ...(cfg.camposPersonalizados || []).map(c => ({ key: c.key, label: c.label }))
+    ];
+  }, [cfg]);
   const [selectedLeads, setSelectedLeads] = useState(new Set());
   const [bulkDestStage, setBulkDestStage] = useState('');
   const [lastSelectedId, setLastSelectedId] = useState(null);
@@ -125,9 +136,18 @@ export default function Funnel({ leads, cfg, user, openDrawer, setLeads, unreads
   // Filtering: agents only see their own leads; managers can filter by agent
   const filteredLeads = leads.filter(l => {
     const s = searchTerm.toLowerCase();
-    const matchSearch = Object.values(l).some(v => 
-      v !== null && v !== undefined && String(v).toLowerCase().includes(s)
-    );
+    
+    let matchSearch = true;
+    if (s) {
+      if (searchField === 'todos') {
+        matchSearch = Object.values(l).some(v => 
+          v !== null && v !== undefined && String(v).toLowerCase().includes(s)
+        );
+      } else {
+        const val = l[searchField];
+        matchSearch = val !== null && val !== undefined && String(val).toLowerCase().includes(s);
+      }
+    }
 
     let matchAgent = true;
     if (!isManager) {
@@ -163,14 +183,29 @@ export default function Funnel({ leads, cfg, user, openDrawer, setLeads, unreads
       <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
 
         {/* Search */}
-        <div style={{ flex: 1, minWidth: '200px', display: 'flex', alignItems: 'center', background: 'var(--s1)', padding: '10px 16px', borderRadius: '10px', border: '1px solid var(--brd)', boxShadow: '0 2px 6px rgba(0,0,0,0.05)' }}>
+        <div style={{ flex: 1, minWidth: '300px', display: 'flex', alignItems: 'center', background: 'var(--s1)', padding: '8px 16px', borderRadius: '10px', border: '1px solid var(--brd)', boxShadow: '0 2px 6px rgba(0,0,0,0.05)' }}>
           <span style={{ marginRight: '10px', fontSize: '1.1rem' }}>🔍</span>
+          
+          <select 
+            value={searchField}
+            onChange={e => setSearchField(e.target.value)}
+            style={{ 
+              background: 'var(--s2)', border: '1px solid var(--brd)', outline: 'none', 
+              fontSize: '0.85rem', color: 'var(--text)', cursor: 'pointer',
+              padding: '4px 8px', borderRadius: '6px', marginRight: '10px'
+            }}
+          >
+            {filterOptions.map(opt => (
+              <option key={opt.key} value={opt.key}>{opt.label}</option>
+            ))}
+          </select>
+
           <input
             type="text"
             placeholder="Buscar contacto..."
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
-            style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: '0.9rem', color: 'var(--text)' }}
+            style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: '0.9rem', color: 'var(--text)', padding: '4px 0' }}
           />
           {searchTerm && (
             <button onClick={() => setSearchTerm('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: '0.85rem' }}>✕</button>
