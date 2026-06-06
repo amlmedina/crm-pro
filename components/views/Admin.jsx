@@ -11,6 +11,7 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
   const [campos, setCampos] = useState([]);
   const [enableDlp, setEnableDlp] = useState(true);
   const [censoredFields, setCensoredFields] = useState([]);
+  const [view360Fields, setView360Fields] = useState([]);
   const [waPredefs, setWaPredefs] = useState([]);
   const [bdayDefaultMessage, setBdayDefaultMessage] = useState('');
 
@@ -40,6 +41,7 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
       ];
       setWaPredefs(loadedPredefs.map(p => typeof p === 'string' ? { title: p.substring(0, 15), text: p } : p));
       setCensoredFields(cfg.censoredFields || []);
+      setView360Fields(cfg.view360Fields || ['Nombre_Persona', 'Telefono', 'Correo_Corp', 'Nombre_Empresa']);
       setBdayDefaultMessage(cfg.bdayDefaultMessage || '¡Hola {Nombre_Persona}! 🎉 Hoy es tu día especial. De parte de todo el equipo, te deseamos un feliz cumpleaños. ¡Que lo disfrutes mucho!');
     }
     loadUsers();
@@ -113,6 +115,7 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
       camposPersonalizados: campos,
       enableDlp: enableDlp,
       censoredFields: censoredFields,
+      view360Fields: view360Fields,
       wa_predefs: waPredefs.filter(p => p.text?.trim() || p.title?.trim()),
       bdayDefaultMessage: bdayDefaultMessage.trim() || '¡Hola {Nombre_Persona}! 🎉 Hoy es tu día especial. ¡Feliz cumpleaños!'
     };
@@ -524,6 +527,34 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
               {c.label} <span className="ct">{c.tipo}</span>
               <button onClick={() => rmCF(i)}>×</button>
             </span>
+          ))}
+        </div>
+      </div>
+      
+      <div className="acard">
+        <h3>Vista 360° (Pestaña Interacción)</h3>
+        <p style={{ fontSize: '0.72rem', color: 'var(--muted)', marginBottom: '15px' }}>Selecciona los campos que deseas que aparezcan fijos en la parte superior del historial/interacción de un contacto para dar contexto rápido al asesor.</p>
+        
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px' }}>
+          {[
+            { key: 'Telefono', label: 'Teléfono' },
+            { key: 'Correo_Corp', label: 'Correo' },
+            { key: 'Nombre_Persona', label: 'Nombre' },
+            { key: 'Nombre_Empresa', label: 'Empresa' },
+            ...(campos || []).map(c => ({ key: c.key, label: c.label }))
+          ].map(f => (
+            <label key={f.key} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', color: 'var(--text)', cursor: 'pointer' }}>
+              <input 
+                type="checkbox" 
+                checked={view360Fields.includes(f.key)}
+                onChange={(e) => {
+                  if (e.target.checked) setView360Fields([...view360Fields, f.key]);
+                  else setView360Fields(view360Fields.filter(k => k !== f.key));
+                }}
+                style={{ accentColor: 'var(--navy)', transform: 'scale(1.1)' }}
+              />
+              {f.label}
+            </label>
           ))}
         </div>
       </div>

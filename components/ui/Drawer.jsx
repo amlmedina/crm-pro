@@ -481,8 +481,7 @@ export default function Drawer({ open, onClose, lead, leads, setLeads, tab, setT
         <div id="drbody">
           <div className="dtabs">
             <button className={`dtab ${tab === 'perfil' ? 'on' : ''}`} onClick={() => setTab('perfil')}>Perfil</button>
-            <button className={`dtab ${tab === 'int' ? 'on' : ''}`} onClick={() => { setTab('int'); setTimeout(() => notasRef.current?.focus(), 80); }}>Interacción</button>
-            <button className={`dtab ${tab === 'hist' ? 'on' : ''}`} onClick={() => setTab('hist')}>Historial</button>
+            <button className={`dtab ${tab === 'int' ? 'on' : ''}`} onClick={() => { setTab('int'); setTimeout(() => notasRef.current?.focus(), 80); }}>Interacción 360°</button>
             {(lead?.Telefono || lead?.LID) && (
               <button className={`dtab ${tab === 'wa' ? 'on' : ''}`} onClick={() => setTab('wa')} style={{ color: tab === 'wa' ? '#25d366' : undefined }}>
                 💬 WhatsApp
@@ -568,90 +567,119 @@ export default function Drawer({ open, onClose, lead, leads, setLeads, tab, setT
           </div>
 
           <div className={`dpanel ${tab === 'int' ? 'on' : ''}`}>
-            <p className="stitle">Registrar Interacción</p>
+            
+            {/* 1. SECCIÓN SUPERIOR: Datos 360° */}
+            {(() => {
+               const viewFields = cfg.view360Fields || ['Nombre_Persona', 'Telefono', 'Correo_Corp', 'Nombre_Empresa'];
+               const defaultLabels = { Telefono: 'Teléfono', Correo_Corp: 'Correo', Nombre_Persona: 'Nombre', Nombre_Empresa: 'Empresa' };
+               const getLabel = k => defaultLabels[k] || cfg.camposPersonalizados?.find(c => c.key === k)?.label || k;
+               const getVal = k => {
+                 if (isCensored && isCensored(k) && lead) return '••••••••••';
+                 return f[k] || cfs[k] || '—';
+               };
+               
+               return (
+                 <div style={{ background: 'var(--s2)', border: '1px solid var(--brd)', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px' }}>
+                   <p className="stitle" style={{ margin: '0 0 10px 0', fontSize: '0.8rem', color: 'var(--navy)' }}>Vista 360° - Datos del Contacto</p>
+                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px' }}>
+                     {viewFields.map(k => (
+                       <div key={k} style={{ display: 'flex', flexDirection: 'column' }}>
+                         <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', color: 'var(--muted)', fontWeight: 700, letterSpacing: '0.5px' }}>{getLabel(k)}</span>
+                         <span style={{ fontSize: '0.85rem', color: 'var(--text)', fontFamily: 'var(--font-ibm-plex-mono), monospace', marginTop: '2px', wordBreak: 'break-word' }}>{getVal(k)}</span>
+                       </div>
+                     ))}
+                   </div>
+                 </div>
+               );
+            })()}
 
-            <div className="fg" style={{ marginBottom: '10px' }}>
-              <label style={{ marginBottom: '6px', display: 'block' }}>Estado</label>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                {cfg.funnel?.map(x => (
+            {/* 2. SECCIÓN CENTRAL: Acción */}
+            <div style={{ background: 'var(--s1)', border: '1px solid var(--brd)', borderRadius: '8px', padding: '16px', marginBottom: '16px' }}>
+              <p className="stitle" style={{ margin: '0 0 10px 0' }}>Registrar Interacción</p>
+              <div className="fg" style={{ marginBottom: '10px' }}>
+                <label style={{ marginBottom: '6px', display: 'block' }}>Estado</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                  {cfg.funnel?.map(x => (
+                    <button
+                      key={x.stage}
+                      onClick={() => setF({ ...f, Estado_Funnel: x.stage })}
+                      style={{
+                        padding: '5px 12px',
+                        borderRadius: '20px',
+                        border: `2px solid ${f.Estado_Funnel === x.stage ? 'var(--navy)' : 'var(--brd)'}`,
+                        background: f.Estado_Funnel === x.stage ? 'var(--navy)' : 'var(--s2)',
+                        color: f.Estado_Funnel === x.stage ? '#fff' : 'var(--text)',
+                        cursor: 'pointer',
+                        fontSize: '0.8rem',
+                        fontWeight: f.Estado_Funnel === x.stage ? 700 : 400,
+                        transition: 'all 0.15s'
+                      }}
+                    >
+                      {x.stage}
+                    </button>
+                  ))}
                   <button
-                    key={x.stage}
-                    onClick={() => setF({ ...f, Estado_Funnel: x.stage })}
+                    onClick={() => setF({ ...f, Estado_Funnel: 'Congelado' })}
                     style={{
                       padding: '5px 12px',
                       borderRadius: '20px',
-                      border: `2px solid ${f.Estado_Funnel === x.stage ? 'var(--navy)' : 'var(--brd)'}`,
-                      background: f.Estado_Funnel === x.stage ? 'var(--navy)' : 'var(--s2)',
-                      color: f.Estado_Funnel === x.stage ? '#fff' : 'var(--text)',
+                      border: `2px solid ${f.Estado_Funnel === 'Congelado' ? '#93c5fd' : 'var(--brd)'}`,
+                      background: f.Estado_Funnel === 'Congelado' ? '#1d4ed8' : 'var(--s2)',
+                      color: f.Estado_Funnel === 'Congelado' ? '#fff' : 'var(--text)',
                       cursor: 'pointer',
                       fontSize: '0.8rem',
-                      fontWeight: f.Estado_Funnel === x.stage ? 700 : 400,
+                      fontWeight: f.Estado_Funnel === 'Congelado' ? 700 : 400,
                       transition: 'all 0.15s'
                     }}
                   >
-                    {x.stage}
+                    ❄️ Congelado
                   </button>
-                ))}
-                <button
-                  onClick={() => setF({ ...f, Estado_Funnel: 'Congelado' })}
-                  style={{
-                    padding: '5px 12px',
-                    borderRadius: '20px',
-                    border: `2px solid ${f.Estado_Funnel === 'Congelado' ? '#93c5fd' : 'var(--brd)'}`,
-                    background: f.Estado_Funnel === 'Congelado' ? '#1d4ed8' : 'var(--s2)',
-                    color: f.Estado_Funnel === 'Congelado' ? '#fff' : 'var(--text)',
-                    cursor: 'pointer',
-                    fontSize: '0.8rem',
-                    fontWeight: f.Estado_Funnel === 'Congelado' ? 700 : 400,
-                    transition: 'all 0.15s'
-                  }}
-                >
-                  ❄️ Congelado
-                </button>
+                </div>
               </div>
+
+              <div className="fg">
+                <label style={{ marginBottom: '6px', display: 'block' }}>Notas <span style={{ color: 'var(--muted)', fontWeight: 400, fontSize: '0.75rem' }}>· Cmd/Ctrl+Enter para guardar</span></label>
+                <textarea
+                  ref={notasRef}
+                  value={notas}
+                  onChange={e => setNotas(e.target.value)}
+                  placeholder="¿Qué pasó en este contacto?"
+                  style={{ minHeight: '100px', resize: 'vertical' }}
+                  onKeyDown={e => {
+                    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                      e.preventDefault();
+                      doSaveInt();
+                    }
+                  }}
+                />
+              </div>
+
+              <button
+                className="btn btny btnw"
+                style={{ marginTop: '10px', opacity: loading ? 0.6 : 1 }}
+                onClick={doSaveInt}
+                disabled={loading}
+              >
+                {loading ? 'Registrando...' : '⚡ Registrar'}
+              </button>
             </div>
 
-            <div className="fg">
-              <label style={{ marginBottom: '6px', display: 'block' }}>Notas <span style={{ color: 'var(--muted)', fontWeight: 400, fontSize: '0.75rem' }}>· Cmd/Ctrl+Enter para guardar</span></label>
-              <textarea
-                ref={notasRef}
-                value={notas}
-                onChange={e => setNotas(e.target.value)}
-                placeholder="¿Qué pasó en este contacto?"
-                style={{ minHeight: '100px', resize: 'vertical' }}
-                onKeyDown={e => {
-                  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-                    e.preventDefault();
-                    doSaveInt();
+            {/* 3. SECCIÓN INFERIOR: Historial */}
+            <div>
+               <p className="stitle" style={{ marginBottom: '10px' }}>Historial de Interacciones</p>
+               <div className="tl">
+                  {loadingHist ? <p style={{color:'var(--muted)', fontSize:'.8rem'}}>Cargando historial...</p> : 
+                   hist.length === 0 ? <p style={{color:'var(--muted)', fontSize:'.8rem'}}>Sin interacciones.</p> :
+                   hist.map((h, i) => (
+                     <div className="tli" key={i}>
+                       <div className={`tldot ${h.Estado_Momento === 'Congelado' ? 'fz' : ''}`}></div>
+                       <div className="tlmeta">{new Date(h.Fecha_Hora).toLocaleString()} · <strong style={{color:'var(--navy)'}}>{h.Estado_Momento}</strong> · {h.ID_Usuario}</div>
+                       <div className="tlnote">{h.Notas}</div>
+                     </div>
+                   ))
                   }
-                }}
-              />
+               </div>
             </div>
-
-            <button
-              className="btn btny btnw"
-              style={{ marginTop: '10px', opacity: loading ? 0.6 : 1 }}
-              onClick={doSaveInt}
-              disabled={loading}
-            >
-              {loading ? 'Registrando...' : '⚡ Registrar'}
-            </button>
-          </div>
-
-          <div className={`dpanel ${tab === 'hist' ? 'on' : ''}`}>
-             <p className="stitle">Línea de Tiempo</p>
-             <div className="tl">
-                {loadingHist ? <p style={{color:'var(--muted)', fontSize:'.8rem'}}>Cargando historial...</p> : 
-                 hist.length === 0 ? <p style={{color:'var(--muted)', fontSize:'.8rem'}}>Sin interacciones.</p> :
-                 hist.map((h, i) => (
-                   <div className="tli" key={i}>
-                     <div className={`tldot ${h.Estado_Momento === 'Congelado' ? 'fz' : ''}`}></div>
-                     <div className="tlmeta">{new Date(h.Fecha_Hora).toLocaleString()} · <strong style={{color:'var(--navy)'}}>{h.Estado_Momento}</strong> · {h.ID_Usuario}</div>
-                     <div className="tlnote">{h.Notas}</div>
-                   </div>
-                 ))
-                }
-             </div>
           </div>
 
           {/* WhatsApp Chat Panel */}
