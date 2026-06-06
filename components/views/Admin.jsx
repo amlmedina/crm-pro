@@ -7,11 +7,13 @@ import { THEMES } from '@/lib/themes';
 
 export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
   const [adminTab, setAdminTab] = useState('usuarios');
+  const [pipelineTab, setPipelineTab] = useState('etapas');
   const [funnel, setFunnel] = useState([]);
   const [campos, setCampos] = useState([]);
   const [enableDlp, setEnableDlp] = useState(true);
   const [censoredFields, setCensoredFields] = useState([]);
   const [view360Fields, setView360Fields] = useState([]);
+  const [funnelCardFields, setFunnelCardFields] = useState([]);
   const [waPredefs, setWaPredefs] = useState([]);
   const [bdayDefaultMessage, setBdayDefaultMessage] = useState('');
 
@@ -42,6 +44,7 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
       setWaPredefs(loadedPredefs.map(p => typeof p === 'string' ? { title: p.substring(0, 15), text: p } : p));
       setCensoredFields(cfg.censoredFields || []);
       setView360Fields(cfg.view360Fields || ['Nombre_Persona', 'Telefono', 'Correo_Corp', 'Nombre_Empresa']);
+      setFunnelCardFields(cfg.funnelCardFields || ['Telefono', 'Nombre_Empresa']);
       setBdayDefaultMessage(cfg.bdayDefaultMessage || '¡Hola {Nombre_Persona}! 🎉 Hoy es tu día especial. De parte de todo el equipo, te deseamos un feliz cumpleaños. ¡Que lo disfrutes mucho!');
     }
     loadUsers();
@@ -116,6 +119,7 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
       enableDlp: enableDlp,
       censoredFields: censoredFields,
       view360Fields: view360Fields,
+      funnelCardFields: funnelCardFields,
       wa_predefs: waPredefs.filter(p => p.text?.trim() || p.title?.trim()),
       bdayDefaultMessage: bdayDefaultMessage.trim() || '¡Hola {Nombre_Persona}! 🎉 Hoy es tu día especial. ¡Feliz cumpleaños!'
     };
@@ -491,6 +495,14 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
       {/* ══ PIPELINE ═════════════════════════════════════ */}
       {adminTab === 'pipeline' && <>
 
+      {/* Pipeline sub-tabs */}
+      <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '20px', background: 'var(--s2)', padding: '6px', borderRadius: '10px', border: '1px solid var(--brd)' }}>
+        {[['etapas','🔀 Etapas'],['campos','📋 Campos'],['vista360','👁 Vista 360°'],['tarjetas','🃏 Tarjetas Kanban']].map(([id, label]) => (
+          <button key={id} onClick={() => setPipelineTab(id)} style={{ padding: '7px 14px', borderRadius: '7px', border: 'none', cursor: 'pointer', fontWeight: pipelineTab===id?700:500, fontSize: '0.8rem', background: pipelineTab===id?'var(--navy)':'transparent', color: pipelineTab===id?'#fff':'var(--muted)', transition: 'all .15s', flex: '0 0 auto' }}>{label}</button>
+        ))}
+      </div>
+
+      {pipelineTab === 'etapas' && (
       <div className="acard">
         <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px'}}>
           <h3 style={{margin:0}}>Etapas del Funnel</h3>
@@ -519,7 +531,9 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
           </div>
         ))}
       </div>
+      )}
 
+      {pipelineTab === 'campos' && (
       <div className="acard">
         <h3>Campos Personalizados (Formulario)</h3>
         <div className="cfrow">
@@ -543,7 +557,9 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
           ))}
         </div>
       </div>
-      
+      )}
+
+      {pipelineTab === 'vista360' && (
       <div className="acard">
         <h3>Vista 360° (Pestaña Interacción)</h3>
         <p style={{ fontSize: '0.72rem', color: 'var(--muted)', marginBottom: '15px' }}>Selecciona los campos que deseas que aparezcan fijos en la parte superior del historial/interacción de un contacto para dar contexto rápido al asesor.</p>
@@ -634,6 +650,102 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
           </div>
         )}
       </div>
+      )}
+
+      {pipelineTab === 'tarjetas' && (
+      <div className="acard">
+        <h3>🃏 Campos en Tarjetas del Kanban</h3>
+        <p style={{ fontSize: '0.72rem', color: 'var(--muted)', marginBottom: '15px' }}>Selecciona los campos secundarios que deseas que aparezcan visibles directamente dentro de las tarjetas de leads del Funnel (tablero Kanban).</p>
+        
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', paddingBottom: '16px', borderBottom: '1px solid var(--brd)' }}>
+          {[
+            { key: 'Telefono', label: 'Teléfono' },
+            { key: 'Correo_Corp', label: 'Correo' },
+            { key: 'Nombre_Empresa', label: 'Empresa' },
+            { key: 'Cumpleanos', label: 'Cumpleaños' },
+            { key: 'LID', label: 'LID (WhatsApp ID)' },
+            ...(campos || []).map(c => ({ key: c.key, label: c.label }))
+          ].map(f => (
+            <label key={f.key} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', color: 'var(--text)', cursor: 'pointer' }}>
+              <input 
+                type="checkbox" 
+                checked={funnelCardFields.includes(f.key)}
+                onChange={(e) => {
+                  if (e.target.checked) setFunnelCardFields([...funnelCardFields, f.key]);
+                  else setFunnelCardFields(funnelCardFields.filter(k => k !== f.key));
+                }}
+                style={{ accentColor: 'var(--navy)', transform: 'scale(1.1)' }}
+              />
+              {f.label}
+            </label>
+          ))}
+        </div>
+
+        {funnelCardFields.length > 0 && (
+          <div style={{ marginTop: '16px' }}>
+            <h4 style={{ fontSize: '0.78rem', fontWeight: 700, marginBottom: '8px', color: 'var(--text)' }}>
+              ↕️ Ordenar Campos de las Tarjetas
+            </h4>
+            <p style={{ fontSize: '0.68rem', color: 'var(--muted)', marginBottom: '12px' }}>
+              Utiliza las flechas para reordenar el orden de aparición de los datos en las tarjetas del tablero.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxWidth: '400px' }}>
+              {funnelCardFields.map((fieldKey, idx) => {
+                const allOpts = [
+                  { key: 'Telefono', label: 'Teléfono' },
+                  { key: 'Correo_Corp', label: 'Correo' },
+                  { key: 'Nombre_Empresa', label: 'Empresa' },
+                  { key: 'Cumpleanos', label: 'Cumpleaños' },
+                  { key: 'LID', label: 'LID (WhatsApp ID)' },
+                  ...(campos || []).map(c => ({ key: c.key, label: c.label }))
+                ];
+                const label = allOpts.find(o => o.key === fieldKey)?.label || fieldKey;
+
+                return (
+                  <div key={fieldKey} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--s2)', padding: '6px 12px', borderRadius: '6px', border: '1px solid var(--brd)' }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text)', fontWeight: 600 }}>{label}</span>
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      <button 
+                        onClick={() => {
+                          if (idx > 0) {
+                            const newFields = [...funnelCardFields];
+                            const tmp = newFields[idx];
+                            newFields[idx] = newFields[idx - 1];
+                            newFields[idx - 1] = tmp;
+                            setFunnelCardFields(newFields);
+                          }
+                        }}
+                        disabled={idx === 0}
+                        style={{ padding: '2px 8px', fontSize: '0.7rem', borderRadius: '4px', border: '1px solid var(--brd)', background: 'var(--s1)', color: 'var(--text)', cursor: idx === 0 ? 'not-allowed' : 'pointer', opacity: idx === 0 ? 0.4 : 1 }}
+                        title="Subir"
+                      >
+                        ▲
+                      </button>
+                      <button 
+                        onClick={() => {
+                          if (idx < funnelCardFields.length - 1) {
+                            const newFields = [...funnelCardFields];
+                            const tmp = newFields[idx];
+                            newFields[idx] = newFields[idx + 1];
+                            newFields[idx + 1] = tmp;
+                            setFunnelCardFields(newFields);
+                          }
+                        }}
+                        disabled={idx === funnelCardFields.length - 1}
+                        style={{ padding: '2px 8px', fontSize: '0.7rem', borderRadius: '4px', border: '1px solid var(--brd)', background: 'var(--s1)', color: 'var(--text)', cursor: idx === funnelCardFields.length - 1 ? 'not-allowed' : 'pointer', opacity: idx === funnelCardFields.length - 1 ? 0.4 : 1 }}
+                        title="Bajar"
+                      >
+                        ▼
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+      )} {/* end tarjetas sub-tab */}
       </> /* end pipeline */}
 
       {/* ══ WHATSAPP PREDEFS + BDAY ═══════════════════════════ */}
