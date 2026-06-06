@@ -548,7 +548,7 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
         <h3>Vista 360° (Pestaña Interacción)</h3>
         <p style={{ fontSize: '0.72rem', color: 'var(--muted)', marginBottom: '15px' }}>Selecciona los campos que deseas que aparezcan fijos en la parte superior del historial/interacción de un contacto para dar contexto rápido al asesor.</p>
         
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', paddingBottom: '16px', borderBottom: '1px solid var(--brd)' }}>
           {[
             { key: 'Telefono', label: 'Teléfono' },
             { key: 'Correo_Corp', label: 'Correo' },
@@ -570,6 +570,69 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
             </label>
           ))}
         </div>
+
+        {view360Fields.length > 0 && (
+          <div style={{ marginTop: '16px' }}>
+            <h4 style={{ fontSize: '0.78rem', fontWeight: 700, marginBottom: '8px', color: 'var(--text)' }}>
+              ↕️ Ordenar Campos de Visualización
+            </h4>
+            <p style={{ fontSize: '0.68rem', color: 'var(--muted)', marginBottom: '12px' }}>
+              Utiliza las flechas para reordenar la posición en la que aparecerán los campos dentro de la Vista 360°.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxWidth: '400px' }}>
+              {view360Fields.map((fieldKey, idx) => {
+                const allOpts = [
+                  { key: 'Telefono', label: 'Teléfono' },
+                  { key: 'Correo_Corp', label: 'Correo' },
+                  { key: 'Nombre_Persona', label: 'Nombre' },
+                  { key: 'Nombre_Empresa', label: 'Empresa' },
+                  ...(campos || []).map(c => ({ key: c.key, label: c.label }))
+                ];
+                const label = allOpts.find(o => o.key === fieldKey)?.label || fieldKey;
+
+                return (
+                  <div key={fieldKey} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--s2)', padding: '6px 12px', borderRadius: '6px', border: '1px solid var(--brd)' }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text)', fontWeight: 600 }}>{label}</span>
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      <button 
+                        onClick={() => {
+                          if (idx > 0) {
+                            const newFields = [...view360Fields];
+                            const tmp = newFields[idx];
+                            newFields[idx] = newFields[idx - 1];
+                            newFields[idx - 1] = tmp;
+                            setView360Fields(newFields);
+                          }
+                        }}
+                        disabled={idx === 0}
+                        style={{ padding: '2px 8px', fontSize: '0.7rem', borderRadius: '4px', border: '1px solid var(--brd)', background: 'var(--s1)', color: 'var(--text)', cursor: idx === 0 ? 'not-allowed' : 'pointer', opacity: idx === 0 ? 0.4 : 1 }}
+                        title="Subir"
+                      >
+                        ▲
+                      </button>
+                      <button 
+                        onClick={() => {
+                          if (idx < view360Fields.length - 1) {
+                            const newFields = [...view360Fields];
+                            const tmp = newFields[idx];
+                            newFields[idx] = newFields[idx + 1];
+                            newFields[idx + 1] = tmp;
+                            setView360Fields(newFields);
+                          }
+                        }}
+                        disabled={idx === view360Fields.length - 1}
+                        style={{ padding: '2px 8px', fontSize: '0.7rem', borderRadius: '4px', border: '1px solid var(--brd)', background: 'var(--s1)', color: 'var(--text)', cursor: idx === view360Fields.length - 1 ? 'not-allowed' : 'pointer', opacity: idx === view360Fields.length - 1 ? 0.4 : 1 }}
+                        title="Bajar"
+                      >
+                        ▼
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
       </> /* end pipeline */}
 
