@@ -176,7 +176,7 @@ export default function Directory({
             onChange={e => {
               setSearchField(e.target.value);
               setQ('');
-              setSelectedValues(new Set());
+              setSelectedValues([]);
             }}
             style={{ 
               background: 'var(--s2)', border: '1px solid var(--brd)', outline: 'none', 

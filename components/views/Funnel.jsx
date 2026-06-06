@@ -235,7 +235,7 @@ export default function Funnel({ leads, cfg, user, openDrawer, openDrawerInQueue
             onChange={e => {
               setSearchField(e.target.value);
               setSearchTerm('');
-              setSelectedValues(new Set());
+              setSelectedValues([]);
             }}
             style={{ 
               background: 'var(--s2)', border: '1px solid var(--brd)', outline: 'none', 
