@@ -413,7 +413,7 @@ export default function Drawer({ open, onClose, lead, leads, setLeads, tab, setT
     if (setLeads) {
       setLeads(prev => prev.map(l =>
         l.ID_Contacto === savedLead.ID_Contacto
-          ? { ...l, Estado_Funnel: nuevoE }
+          ? { ...l, Estado_Funnel: nuevoE, Ultima_Interaccion: new Date().toISOString() }
           : l
       ));
     }
