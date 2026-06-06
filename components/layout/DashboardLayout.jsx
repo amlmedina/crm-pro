@@ -46,22 +46,25 @@ export default function DashboardLayout({ user }) {
   const [drawerTab, setDrawerTab] = useState('perfil');
   const [drawerQueue, setDrawerQueue] = useState([]); // ordered list of leads for queue mode
   const [drawerQueueIdx, setDrawerQueueIdx] = useState(-1);
+  const [drawerQueueStageName, setDrawerQueueStageName] = useState('');
 
   function openDrawer(lead = null, tab = 'perfil') {
     setDrawerLead(lead);
     setDrawerTab(tab);
     setDrawerQueue([]);
     setDrawerQueueIdx(-1);
+    setDrawerQueueStageName('');
     setDrawerOpen(true);
   }
 
   // Used by Funnel — enables queue/auto-advance mode
-  function openDrawerInQueue(lead, orderedList) {
+  function openDrawerInQueue(lead, orderedList, stageName = '') {
     const idx = orderedList.findIndex(l => l.ID_Contacto === lead.ID_Contacto);
     setDrawerLead(lead);
     setDrawerTab('int');
     setDrawerQueue(orderedList);
     setDrawerQueueIdx(idx);
+    setDrawerQueueStageName(stageName);
     setDrawerOpen(true);
   }
 
@@ -350,7 +353,7 @@ export default function DashboardLayout({ user }) {
           {user.rol === 'Gerente' && (
             <>
               <div style={{ display: activeTab === 'reports' ? 'flex' : 'none', flex: 1, overflowY: 'auto' }}>
-                <Reports leads={leads} cfg={cfg} />
+                <Reports leads={leads} cfg={cfg} setCfg={setCfg} />
               </div>
               <div style={{ display: activeTab === 'admin' ? 'flex' : 'none', flex: 1, overflowY: 'auto' }}>
                 <Admin cfg={cfg} setCfg={setCfg} currentTheme={currentTheme} changeTheme={changeTheme} />
@@ -375,6 +378,7 @@ export default function DashboardLayout({ user }) {
         isCensored={isCensored}
         drawerQueue={drawerQueue}
         drawerQueueIdx={drawerQueueIdx}
+        drawerQueueStageName={drawerQueueStageName}
         onAdvanceQueue={(nextLead, nextIdx) => {
           setDrawerLead(nextLead);
           setDrawerQueueIdx(nextIdx);
