@@ -130,7 +130,7 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
   }
 
   function addStage() {
-    setFunnel([...funnel, { stage: 'Nueva Etapa', limit: 0 }]);
+    setFunnel([...funnel, { stage: 'Nueva Etapa', limit: 0, type: 'activa' }]);
   }
   function updateStage(index, field, value) {
     const f = [...funnel];
@@ -496,12 +496,25 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
           <h3 style={{margin:0}}>Etapas del Funnel</h3>
           <button className="btn btnda" onClick={addStage}>+ Etapa</button>
         </div>
-        <div style={{display:'grid', gridTemplateColumns:'1fr 38px', gap:'10px', marginBottom:'8px'}}>
-          <label style={{fontSize:'.67rem', color:'var(--muted)', fontWeight:700}}>Etapa</label>
+        <div style={{display:'grid', gridTemplateColumns:'2fr 1.2fr 38px', gap:'10px', marginBottom:'8px'}}>
+          <label style={{fontSize:'.67rem', color:'var(--muted)', fontWeight:700}}>Etapa (Nombre)</label>
+          <label style={{fontSize:'.67rem', color:'var(--muted)', fontWeight:700}}>Tipo de Etapa</label>
         </div>
         {funnel.map((f, i) => (
-          <div className="strow" key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 38px', gap: '10px', marginBottom: '6px' }}>
+          <div className="strow" key={i} style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr 38px', gap: '10px', marginBottom: '6px' }}>
             <input type="text" style={{width: '100%'}} value={f.stage} onChange={e => updateStage(i, 'stage', e.target.value)} />
+            <select 
+              value={f.type || 'activa'} 
+              onChange={e => updateStage(i, 'type', e.target.value)}
+              style={{
+                background: 'var(--s2)', color: 'var(--text)', border: '1px solid var(--brd)',
+                borderRadius: '6px', padding: '4px 8px', fontSize: '0.8rem', cursor: 'pointer', outline: 'none'
+              }}
+            >
+              <option value="activa">⚙️ Activa / Seguimiento</option>
+              <option value="ganada">🎉 Ganadora (Cierre)</option>
+              <option value="perdida">❌ Perdida (Descartado)</option>
+            </select>
             <button className="btn btndel" onClick={() => rmStage(i)}>✕</button>
           </div>
         ))}

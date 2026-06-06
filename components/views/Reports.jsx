@@ -74,11 +74,19 @@ export default function Reports({ leads, cfg, setCfg }) {
     };
 
     const isWon = (l) => {
+      const stageCfg = cfg.funnel?.find(fs => fs.stage === l.Estado_Funnel);
+      if (stageCfg && stageCfg.type) {
+        return stageCfg.type === 'ganada';
+      }
       const lastStage = cfg.funnel && cfg.funnel.length > 0 ? cfg.funnel[cfg.funnel.length - 1].stage : 'Cierre';
       return l.Estado_Funnel === lastStage || String(l.Estado_Funnel || '').toLowerCase().includes('ganado');
     };
 
     const isLost = (l) => {
+      const stageCfg = cfg.funnel?.find(fs => fs.stage === l.Estado_Funnel);
+      if (stageCfg && stageCfg.type) {
+        return stageCfg.type === 'perdida';
+      }
       const state = String(l.Estado_Funnel || '').toLowerCase();
       return state.includes('perdido') || state.includes('congelado') || state.includes('descartado');
     };
@@ -238,9 +246,19 @@ export default function Reports({ leads, cfg, setCfg }) {
       }
       performanceMap[agName].total++;
       
-      const lastStage = cfg.funnel && cfg.funnel.length > 0 ? cfg.funnel[cfg.funnel.length - 1].stage : 'Cierre';
-      const isWon = l.Estado_Funnel === lastStage || String(l.Estado_Funnel || '').toLowerCase().includes('ganado');
-      const isLost = String(l.Estado_Funnel || '').toLowerCase().includes('perdido') || String(l.Estado_Funnel || '').toLowerCase().includes('congelado') || String(l.Estado_Funnel || '').toLowerCase().includes('descartado');
+      const stageCfg = cfg.funnel?.find(fs => fs.stage === l.Estado_Funnel);
+      let isWon = false;
+      let isLost = false;
+
+      if (stageCfg && stageCfg.type) {
+        isWon = stageCfg.type === 'ganada';
+        isLost = stageCfg.type === 'perdida';
+      } else {
+        const lastStage = cfg.funnel && cfg.funnel.length > 0 ? cfg.funnel[cfg.funnel.length - 1].stage : 'Cierre';
+        isWon = l.Estado_Funnel === lastStage || String(l.Estado_Funnel || '').toLowerCase().includes('ganado');
+        const state = String(l.Estado_Funnel || '').toLowerCase();
+        isLost = state.includes('perdido') || state.includes('congelado') || state.includes('descartado');
+      }
       
       if (isWon) {
         performanceMap[agName].ganados++;
