@@ -9,6 +9,7 @@ export default function Directory({
   const [q, setQ] = useState('');
   const [searchField, setSearchField] = useState('todos');
   const [activeFilters, setActiveFilters] = useState([]);
+  const [selectedValues, setSelectedValues] = useState(new Set());
   const [cpOpen, setCpOpen] = useState(false);
   const [sortCol, setSortCol] = useState('ID_Contacto');
   const [sortAsc, setSortAsc] = useState(true);
@@ -166,19 +167,20 @@ export default function Directory({
       </div>
 
       <div id="toolbar" style={{ flexWrap: 'wrap', gap: '10px' }}>
-        <div style={{ flex: 1, minWidth: '300px', display: 'flex', alignItems: 'center', background: 'var(--s1)', padding: '8px 16px', borderRadius: '10px', border: '1px solid var(--brd)', boxShadow: '0 2px 6px rgba(0,0,0,0.05)' }}>
-          <span style={{ marginRight: '10px', fontSize: '1.1rem' }}>🔍</span>
+        <div style={{ flex: 1, minWidth: '300px', display: 'flex', alignItems: 'center', background: 'var(--s1)', padding: '8px 16px', borderRadius: '10px', border: '1px solid var(--brd)', boxShadow: '0 2px 6px rgba(0,0,0,0.05)', flexWrap: 'wrap', gap: '6px' }}>
+          <span style={{ fontSize: '1.1rem' }}>🔍</span>
           
           <select 
             value={searchField}
             onChange={e => {
               setSearchField(e.target.value);
               setQ('');
+              setSelectedValues(new Set());
             }}
             style={{ 
               background: 'var(--s2)', border: '1px solid var(--brd)', outline: 'none', 
               fontSize: '0.85rem', color: 'var(--text)', cursor: 'pointer',
-              padding: '4px 8px', borderRadius: '6px', marginRight: '10px'
+              padding: '4px 8px', borderRadius: '6px'
             }}
           >
             {filterOptions.map(opt => (
@@ -188,31 +190,39 @@ export default function Directory({
 
           {(() => {
             const selectedOpt = filterOptions.find(o => o.key === searchField);
-            if (selectedOpt?.tipo === 'select') {
+            const chipOptions = selectedOpt?.tipo === 'select'
+              ? (selectedOpt.opciones || [])
+              : selectedOpt?.tipo === 'bool'
+              ? ['Sí', 'No']
+              : null;
+
+            if (chipOptions) {
               return (
-                <select
-                  value={q}
-                  onChange={e => setQ(e.target.value)}
-                  style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: '0.9rem', color: 'var(--text)', padding: '4px 0' }}
-                >
-                  <option value="">(Cualquiera)</option>
-                  {selectedOpt.opciones?.map(o => <option key={o} value={o}>{o}</option>)}
-                </select>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', flex: 1 }}>
+                  {chipOptions.map(o => (
+                    <button
+                      key={o}
+                      onClick={() => {
+                        const next = new Set(selectedValues);
+                        next.has(o) ? next.delete(o) : next.add(o);
+                        setSelectedValues(next);
+                      }}
+                      style={{
+                        padding: '3px 10px', borderRadius: '12px', fontSize: '0.78rem',
+                        border: `1.5px solid ${selectedValues.has(o) ? 'var(--navy)' : 'var(--brd)'}`,
+                        background: selectedValues.has(o) ? 'var(--navy)' : 'var(--s2)',
+                        color: selectedValues.has(o) ? '#fff' : 'var(--text)',
+                        cursor: 'pointer', fontWeight: selectedValues.has(o) ? 700 : 400,
+                        transition: 'all 0.12s'
+                      }}
+                    >
+                      {selectedValues.has(o) ? '✓ ' : ''}{o}
+                    </button>
+                  ))}
+                </div>
               );
             }
-            if (selectedOpt?.tipo === 'bool') {
-              return (
-                <select
-                  value={q}
-                  onChange={e => setQ(e.target.value)}
-                  style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: '0.9rem', color: 'var(--text)', padding: '4px 0' }}
-                >
-                  <option value="">(Cualquiera)</option>
-                  <option value="Sí">Sí</option>
-                  <option value="No">No</option>
-                </select>
-              );
-            }
+
             return (
               <input
                 type="text"
@@ -224,41 +234,47 @@ export default function Directory({
                     e.preventDefault();
                     const selectedOpt = filterOptions.find(o => o.key === searchField);
                     setActiveFilters([...activeFilters, {
-                      id: Date.now(),
-                      field: searchField,
-                      label: selectedOpt ? selectedOpt.label : 'Filtro',
-                      value: q.trim()
+                      id: Date.now(), field: searchField,
+                      label: selectedOpt?.label || 'Filtro', value: q.trim()
                     }]);
                     setQ('');
                   }
                 }}
-                style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontSize: '0.9rem', color: 'var(--text)', padding: '4px 0' }}
+                style={{ flex: 1, minWidth: '120px', background: 'transparent', border: 'none', outline: 'none', fontSize: '0.9rem', color: 'var(--text)', padding: '4px 0' }}
               />
             );
           })()}
           
           {q && (
-            <button onClick={() => setQ('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: '0.85rem', marginRight: '6px' }} title="Limpiar">✕</button>
+            <button onClick={() => setQ('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: '0.85rem' }} title="Limpiar">✕</button>
           )}
 
           <button 
             onClick={() => {
-              if (!q.trim()) return;
               const selectedOpt = filterOptions.find(o => o.key === searchField);
-              setActiveFilters([...activeFilters, {
-                id: Date.now(),
-                field: searchField,
-                label: selectedOpt ? selectedOpt.label : 'Filtro',
-                value: q.trim()
-              }]);
-              setQ('');
+              if (selectedValues.size > 0) {
+                const newPills = Array.from(selectedValues).map(val => ({
+                  id: Date.now() + Math.random(),
+                  field: searchField,
+                  label: selectedOpt?.label || 'Filtro',
+                  value: val
+                }));
+                setActiveFilters([...activeFilters, ...newPills]);
+                setSelectedValues(new Set());
+              } else if (q.trim()) {
+                setActiveFilters([...activeFilters, {
+                  id: Date.now(), field: searchField,
+                  label: selectedOpt?.label || 'Filtro', value: q.trim()
+                }]);
+                setQ('');
+              }
             }} 
-            disabled={!q.trim()}
+            disabled={selectedValues.size === 0 && !q.trim()}
             style={{ 
-              background: q.trim() ? 'var(--accent)' : 'var(--brd)', 
-              border: 'none', cursor: q.trim() ? 'pointer' : 'not-allowed', 
+              background: (selectedValues.size > 0 || q.trim()) ? 'var(--navy)' : 'var(--brd)', 
+              border: 'none', cursor: (selectedValues.size > 0 || q.trim()) ? 'pointer' : 'not-allowed', 
               color: '#fff', fontSize: '1.2rem', padding: '0 10px', borderRadius: '6px', 
-              height: '28px', display: 'flex', alignItems: 'center' 
+              height: '28px', display: 'flex', alignItems: 'center', flexShrink: 0
             }}
             title="Añadir Filtro"
           >

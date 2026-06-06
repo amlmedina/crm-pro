@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { api } from '@/lib/api';
 import Swal from 'sweetalert2';
 
-export default function Drawer({ open, onClose, lead, leads, setLeads, tab, setTab, cfg, user, refreshLeads, isCensored, drawerQueue = [], drawerQueueIdx = -1, onAdvanceQueue }) {
+export default function Drawer({ open, onClose, lead, leads, setLeads, tab, setTab, cfg, user, refreshLeads, isCensored, drawerQueue = [], drawerQueueIdx = -1, onAdvanceQueue, drawerQueueStageName = '' }) {
   const [f, setF] = useState({});
   const [cfs, setCfs] = useState({});
   const [loading, setLoading] = useState(false);
@@ -428,7 +428,8 @@ export default function Drawer({ open, onClose, lead, leads, setLeads, tab, setT
           if (notasRef.current) notasRef.current.focus();
         }, 120);
       } else {
-        showToast('✅ Último contacto de la lista registrado');
+        const colName = drawerQueueStageName ? ` la columna ${drawerQueueStageName}` : 'la lista';
+        showToast(`✅ Último contacto de ${colName} registrado`);
       }
     } else {
       showToast('✅ Interacción registrada');
@@ -579,8 +580,8 @@ export default function Drawer({ open, onClose, lead, leads, setLeads, tab, setT
                     style={{
                       padding: '5px 12px',
                       borderRadius: '20px',
-                      border: `2px solid ${f.Estado_Funnel === x.stage ? 'var(--accent)' : 'var(--brd)'}`,
-                      background: f.Estado_Funnel === x.stage ? 'var(--accent)' : 'var(--s2)',
+                      border: `2px solid ${f.Estado_Funnel === x.stage ? 'var(--navy)' : 'var(--brd)'}`,
+                      background: f.Estado_Funnel === x.stage ? 'var(--navy)' : 'var(--s2)',
                       color: f.Estado_Funnel === x.stage ? '#fff' : 'var(--text)',
                       cursor: 'pointer',
                       fontSize: '0.8rem',
