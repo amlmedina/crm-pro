@@ -14,6 +14,7 @@ export default function Drawer({ open, onClose, lead, leads, setLeads, tab, setT
   const [usersList, setUsersList] = useState([]);
   const [toast, setToast] = useState(null); // { msg, type: 'ok'|'err' }
   const notasRef = useRef(null);
+  const histContactRef = useRef(null); // Tracks the current contact to cancel stale history loads
 
   function showToast(msg, type = 'ok') {
     setToast({ msg, type });
@@ -325,6 +326,7 @@ export default function Drawer({ open, onClose, lead, leads, setLeads, tab, setT
         setCfs(cfsData);
         
         setHist([]); // Clear old history to prevent mixup
+        histContactRef.current = lead.ID_Contacto;
         loadHistorial(lead.ID_Contacto);
       } else {
         // Nuevo Lead
@@ -347,11 +349,14 @@ export default function Drawer({ open, onClose, lead, leads, setLeads, tab, setT
     setLoadingHist(true);
     try {
       const res = await api('getInteractions', { idContacto: id });
-      setHist(res || []);
+      // Only apply if this contact is still the active one (prevents race conditions)
+      if (histContactRef.current === id) {
+        setHist(res || []);
+      }
     } catch {
-      setHist([]);
+      if (histContactRef.current === id) setHist([]);
     }
-    setLoadingHist(false);
+    if (histContactRef.current === id) setLoadingHist(false);
   }
 
   function toTitleCase(str) {

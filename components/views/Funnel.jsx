@@ -9,7 +9,7 @@ export default function Funnel({ leads, cfg, user, openDrawer, openDrawerInQueue
   const [searchTerm, setSearchTerm] = useState('');
   const [searchField, setSearchField] = useState('todos');
   const [activeFilters, setActiveFilters] = useState([]);
-  const [selectedValues, setSelectedValues] = useState(new Set());
+  const [selectedValues, setSelectedValues] = useState([]); // array, not Set — avoids React stale closure issues
   const [agentFilter, setAgentFilter] = useState('todos');
 
   const filterOptions = useMemo(() => {
@@ -259,26 +259,30 @@ export default function Funnel({ leads, cfg, user, openDrawer, openDrawerInQueue
             if (chipOptions) {
               return (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', flex: 1 }}>
-                  {chipOptions.map(o => (
-                    <button
-                      key={o}
-                      onClick={() => {
-                        const next = new Set(selectedValues);
-                        next.has(o) ? next.delete(o) : next.add(o);
-                        setSelectedValues(next);
-                      }}
-                      style={{
-                        padding: '3px 10px', borderRadius: '12px', fontSize: '0.78rem',
-                        border: `1.5px solid ${selectedValues.has(o) ? 'var(--accent)' : 'var(--brd)'}`,
-                        background: selectedValues.has(o) ? 'var(--accent)' : 'var(--s2)',
-                        color: selectedValues.has(o) ? '#fff' : 'var(--text)',
-                        cursor: 'pointer', fontWeight: selectedValues.has(o) ? 700 : 400,
-                        transition: 'all 0.12s'
-                      }}
-                    >
-                      {selectedValues.has(o) ? '✓ ' : ''}{o}
-                    </button>
-                  ))}
+                  {chipOptions.map(o => {
+                    const isSelected = selectedValues.includes(o);
+                    return (
+                      <button
+                        key={o}
+                        onClick={() => {
+                          setSelectedValues(prev =>
+                            prev.includes(o) ? prev.filter(v => v !== o) : [...prev, o]
+                          );
+                        }}
+                        style={{
+                          padding: '4px 12px', borderRadius: '14px', fontSize: '0.78rem',
+                          border: `2px solid ${isSelected ? 'var(--accent)' : 'var(--brd)'}`,
+                          background: isSelected ? 'var(--accent)' : 'transparent',
+                          color: isSelected ? '#fff' : 'var(--text)',
+                          cursor: 'pointer', fontWeight: isSelected ? 700 : 400,
+                          transition: 'all 0.15s',
+                          boxShadow: isSelected ? '0 2px 8px rgba(0,0,0,0.18)' : 'none'
+                        }}
+                      >
+                        {isSelected ? '✓ ' : ''}{o}
+                      </button>
+                    );
+                  })}
                 </div>
               );
             }
@@ -312,15 +316,15 @@ export default function Funnel({ leads, cfg, user, openDrawer, openDrawerInQueue
           <button 
             onClick={() => {
               const selectedOpt = filterOptions.find(o => o.key === searchField);
-              if (selectedValues.size > 0) {
-                const newPills = Array.from(selectedValues).map(val => ({
+              if (selectedValues.length > 0) {
+                const newPills = selectedValues.map(val => ({
                   id: Date.now() + Math.random(),
                   field: searchField,
                   label: selectedOpt?.label || 'Filtro',
                   value: val
                 }));
                 setActiveFilters([...activeFilters, ...newPills]);
-                setSelectedValues(new Set());
+                setSelectedValues([]);
               } else if (searchTerm.trim()) {
                 setActiveFilters([...activeFilters, {
                   id: Date.now(), field: searchField,
@@ -330,11 +334,11 @@ export default function Funnel({ leads, cfg, user, openDrawer, openDrawerInQueue
               }
             }} 
             style={{ 
-              background: (selectedValues.size > 0 || searchTerm.trim()) ? 'var(--accent)' : 'var(--brd)', 
-              border: 'none', cursor: (selectedValues.size > 0 || searchTerm.trim()) ? 'pointer' : 'not-allowed', 
+              background: (selectedValues.length > 0 || searchTerm.trim()) ? 'var(--accent)' : 'var(--brd)', 
+              border: 'none', cursor: (selectedValues.length > 0 || searchTerm.trim()) ? 'pointer' : 'not-allowed', 
               color: '#fff', fontSize: '1.2rem', padding: '0 10px', borderRadius: '6px', 
               height: '28px', display: 'flex', alignItems: 'center', flexShrink: 0,
-              opacity: (selectedValues.size > 0 || searchTerm.trim()) ? 1 : 0.5
+              opacity: (selectedValues.length > 0 || searchTerm.trim()) ? 1 : 0.5
             }}
             title="Añadir Filtro"
           >
