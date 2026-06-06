@@ -75,11 +75,12 @@ export default function Funnel({ leads, cfg, user, openDrawer, openDrawerInQueue
     const id = e.dataTransfer.getData('text/plain');
     if (!id || !destStage) return;
 
-    const lead = leads.find(l => l.ID_Contacto === id);
+    // Use loose comparison (==) to handle string vs number ID_Contacto mismatch
+    const lead = leads.find(l => String(l.ID_Contacto) === String(id));
     if (!lead || lead.Estado_Funnel === destStage) return;
 
     const oldLeads = [...leads];
-    setLeads(leads.map(l => l.ID_Contacto === id ? { ...l, Estado_Funnel: destStage } : l));
+    setLeads(leads.map(l => String(l.ID_Contacto) === String(id) ? { ...l, Estado_Funnel: destStage } : l));
 
     try {
       await api('saveInteraction', {
@@ -152,13 +153,14 @@ export default function Funnel({ leads, cfg, user, openDrawer, openDrawerInQueue
       let matchField = false;
 
       for (const f of groupFilters) {
-        const s = f.value.toLowerCase();
+        const s = f.value;
         if (field === 'todos') {
-          const match = Object.values(l).some(v => v !== null && v !== undefined && String(v).toLowerCase().includes(s));
+          const match = Object.values(l).some(v => v !== null && v !== undefined && String(v).toLowerCase().includes(s.toLowerCase()));
           if (match) { matchField = true; break; }
         } else {
           const val = l[field];
-          const match = val !== null && val !== undefined && String(val).toLowerCase().includes(s);
+          // Exact match for select-type values, partial match for text
+          const match = val !== null && val !== undefined && String(val).toLowerCase() === s.toLowerCase();
           if (match) { matchField = true; break; }
         }
       }
@@ -327,12 +329,12 @@ export default function Funnel({ leads, cfg, user, openDrawer, openDrawerInQueue
                 setSearchTerm('');
               }
             }} 
-            disabled={selectedValues.size === 0 && !searchTerm.trim()}
             style={{ 
               background: (selectedValues.size > 0 || searchTerm.trim()) ? 'var(--accent)' : 'var(--brd)', 
               border: 'none', cursor: (selectedValues.size > 0 || searchTerm.trim()) ? 'pointer' : 'not-allowed', 
               color: '#fff', fontSize: '1.2rem', padding: '0 10px', borderRadius: '6px', 
-              height: '28px', display: 'flex', alignItems: 'center', flexShrink: 0
+              height: '28px', display: 'flex', alignItems: 'center', flexShrink: 0,
+              opacity: (selectedValues.size > 0 || searchTerm.trim()) ? 1 : 0.5
             }}
             title="Añadir Filtro"
           >

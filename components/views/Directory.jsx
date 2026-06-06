@@ -104,13 +104,14 @@ export default function Directory({
         let matchField = false;
 
         for (const f of groupFilters) {
-          const s = f.value.toLowerCase();
+          const s = f.value;
           if (field === 'todos') {
-            const match = Object.values(l).some(v => v !== null && v !== undefined && String(v).toLowerCase().includes(s));
+            const match = Object.values(l).some(v => v !== null && v !== undefined && String(v).toLowerCase().includes(s.toLowerCase()));
             if (match) { matchField = true; break; }
           } else {
             const val = l[field];
-            const match = val !== null && val !== undefined && String(val).toLowerCase().includes(s);
+            // Exact match for select-type values, partial for text
+            const match = val !== null && val !== undefined && String(val).toLowerCase() === s.toLowerCase();
             if (match) { matchField = true; break; }
           }
         }
@@ -269,12 +270,12 @@ export default function Directory({
                 setQ('');
               }
             }} 
-            disabled={selectedValues.size === 0 && !q.trim()}
             style={{ 
               background: (selectedValues.size > 0 || q.trim()) ? 'var(--navy)' : 'var(--brd)', 
               border: 'none', cursor: (selectedValues.size > 0 || q.trim()) ? 'pointer' : 'not-allowed', 
               color: '#fff', fontSize: '1.2rem', padding: '0 10px', borderRadius: '6px', 
-              height: '28px', display: 'flex', alignItems: 'center', flexShrink: 0
+              height: '28px', display: 'flex', alignItems: 'center', flexShrink: 0,
+              opacity: (selectedValues.size > 0 || q.trim()) ? 1 : 0.5
             }}
             title="Añadir Filtro"
           >
