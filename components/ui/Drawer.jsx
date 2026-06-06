@@ -324,6 +324,7 @@ export default function Drawer({ open, onClose, lead, leads, setLeads, tab, setT
         });
         setCfs(cfsData);
         
+        setHist([]); // Clear old history to prevent mixup
         loadHistorial(lead.ID_Contacto);
       } else {
         // Nuevo Lead
@@ -580,7 +581,36 @@ export default function Drawer({ open, onClose, lead, leads, setLeads, tab, setT
                
                return (
                  <div style={{ background: 'var(--s2)', border: '1px solid var(--brd)', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px' }}>
-                   <p className="stitle" style={{ margin: '0 0 10px 0', fontSize: '0.8rem', color: 'var(--navy)' }}>Vista 360° - Datos del Contacto</p>
+                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                     <p className="stitle" style={{ margin: 0, fontSize: '0.8rem', color: 'var(--navy)' }}>Vista 360° - Datos del Contacto</p>
+                     
+                     {drawerQueue.length > 0 && onAdvanceQueue && (
+                       <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                         <button 
+                           className="btn btnda"
+                           disabled={drawerQueueIdx <= 0} 
+                           onClick={() => onAdvanceQueue(drawerQueue[drawerQueueIdx - 1], drawerQueueIdx - 1)}
+                           style={{ padding: '2px 8px', fontSize: '0.65rem' }}
+                           title="Contacto anterior"
+                         >
+                           ◀ Anterior
+                         </button>
+                         <span style={{ fontSize: '0.65rem', color: 'var(--muted)', fontWeight: 700 }}>
+                           {drawerQueueIdx + 1} / {drawerQueue.length}
+                         </span>
+                         <button 
+                           className="btn btnda"
+                           disabled={drawerQueueIdx >= drawerQueue.length - 1} 
+                           onClick={() => onAdvanceQueue(drawerQueue[drawerQueueIdx + 1], drawerQueueIdx + 1)}
+                           style={{ padding: '2px 8px', fontSize: '0.65rem' }}
+                           title="Siguiente contacto"
+                         >
+                           Siguiente ▶
+                         </button>
+                       </div>
+                     )}
+                   </div>
+                   
                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px' }}>
                      {viewFields.map(k => (
                        <div key={k} style={{ display: 'flex', flexDirection: 'column' }}>
