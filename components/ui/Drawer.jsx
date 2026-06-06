@@ -575,58 +575,165 @@ export default function Drawer({ open, onClose, lead, leads, setLeads, tab, setT
           <div className={`dpanel ${tab === 'int' ? 'on' : ''}`}>
             
             {/* 1. SECCIÓN SUPERIOR: Datos 360° */}
-            {(() => {
-               const viewFields = cfg.view360Fields || ['Nombre_Persona', 'Telefono', 'Correo_Corp', 'Nombre_Empresa'];
-               const defaultLabels = { Telefono: 'Teléfono', Correo_Corp: 'Correo', Nombre_Persona: 'Nombre', Nombre_Empresa: 'Empresa' };
-               const getLabel = k => defaultLabels[k] || cfg.camposPersonalizados?.find(c => c.key === k)?.label || k;
-               const getVal = k => {
-                 if (isCensored && isCensored(k) && lead) return '••••••••••';
-                 return f[k] || cfs[k] || '—';
-               };
-               
-               return (
-                 <div style={{ background: 'var(--s2)', border: '1px solid var(--brd)', borderRadius: '8px', padding: '12px 16px', marginBottom: '16px' }}>
-                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                     <p className="stitle" style={{ margin: 0, fontSize: '0.8rem', color: 'var(--navy)' }}>Vista 360° - Datos del Contacto</p>
-                     
-                     {drawerQueue.length > 0 && onAdvanceQueue && (
-                       <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                         <button 
-                           className="btn btnda"
-                           disabled={drawerQueueIdx <= 0} 
-                           onClick={() => onAdvanceQueue(drawerQueue[drawerQueueIdx - 1], drawerQueueIdx - 1)}
-                           style={{ padding: '2px 8px', fontSize: '0.65rem' }}
-                           title="Contacto anterior"
-                         >
-                           ◀ Anterior
-                         </button>
-                         <span style={{ fontSize: '0.65rem', color: 'var(--muted)', fontWeight: 700 }}>
-                           {drawerQueueIdx + 1} / {drawerQueue.length}
-                         </span>
-                         <button 
-                           className="btn btnda"
-                           disabled={drawerQueueIdx >= drawerQueue.length - 1} 
-                           onClick={() => onAdvanceQueue(drawerQueue[drawerQueueIdx + 1], drawerQueueIdx + 1)}
-                           style={{ padding: '2px 8px', fontSize: '0.65rem' }}
-                           title="Siguiente contacto"
-                         >
-                           Siguiente ▶
-                         </button>
-                       </div>
-                     )}
-                   </div>
-                   
-                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px' }}>
-                     {viewFields.map(k => (
-                       <div key={k} style={{ display: 'flex', flexDirection: 'column' }}>
-                         <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', color: 'var(--muted)', fontWeight: 700, letterSpacing: '0.5px' }}>{getLabel(k)}</span>
-                         <span style={{ fontSize: '0.85rem', color: 'var(--text)', fontFamily: 'var(--font-ibm-plex-mono), monospace', marginTop: '2px', wordBreak: 'break-word' }}>{getVal(k)}</span>
-                       </div>
-                     ))}
-                   </div>
-                 </div>
-               );
-            })()}
+             {(() => {
+                const viewFields = cfg.view360Fields || ['Nombre_Persona', 'Telefono', 'Correo_Corp', 'Nombre_Empresa'];
+                const defaultLabels = { Telefono: 'Teléfono', Correo_Corp: 'Correo', Nombre_Persona: 'Nombre', Nombre_Empresa: 'Empresa', Cumpleanos: 'Cumpleaños', LID: 'LID (WhatsApp ID)' };
+                const getLabel = k => defaultLabels[k] || cfg.camposPersonalizados?.find(c => c.key === k)?.label || k;
+                
+                const renderInput = (k) => {
+                  const isCens = isCensored && isCensored(k) && lead;
+                  if (isCens) {
+                    return <input type="text" className="inp" value="••••••••••" disabled style={{ padding: '4px 8px', fontSize: '0.78rem', height: '28px', borderRadius: '6px', marginTop: '2px' }} />;
+                  }
+
+                  // 1. Agente Asignado
+                  if (k === 'Agente_Asignado') {
+                    if (user.rol === 'Gerente' || user.rol === 'Administrador') {
+                      return (
+                        <select 
+                          className="inp" 
+                          value={f.Agente_Asignado || ''} 
+                          onChange={e => setF({...f, Agente_Asignado: e.target.value})}
+                          style={{ padding: '4px 8px', fontSize: '0.78rem', height: '28px', borderRadius: '6px', marginTop: '2px', background: 'var(--s1)', color: 'var(--text)', border: '1px solid var(--brd)' }}
+                        >
+                          <option value="">Sin Asignar</option>
+                          {usersList.map(u => <option key={u.id} value={u.nombre}>{u.nombre}</option>)}
+                        </select>
+                      );
+                    } else {
+                      return <input type="text" className="inp" value={f.Agente_Asignado || 'Sin Asignar'} disabled style={{ padding: '4px 8px', fontSize: '0.78rem', height: '28px', borderRadius: '6px', marginTop: '2px' }} />;
+                    }
+                  }
+
+                  // 2. Custom Fields in cfg
+                  const customField = cfg.camposPersonalizados?.find(c => c.key === k);
+                  if (customField) {
+                    if (customField.tipo === 'select') {
+                      return (
+                        <select 
+                          className="inp" 
+                          value={cfs[k] || ''} 
+                          onChange={e => setCfs({...cfs, [k]: e.target.value})}
+                          style={{ padding: '4px 8px', fontSize: '0.78rem', height: '28px', borderRadius: '6px', marginTop: '2px', background: 'var(--s1)', color: 'var(--text)', border: '1px solid var(--brd)' }}
+                        >
+                          <option value="">—</option>
+                          {customField.opciones.map(o => <option key={o} value={o}>{o}</option>)}
+                        </select>
+                      );
+                    }
+                    if (customField.tipo === 'bool') {
+                      return (
+                        <select 
+                          className="inp" 
+                          value={cfs[k] || ''} 
+                          onChange={e => setCfs({...cfs, [k]: e.target.value})}
+                          style={{ padding: '4px 8px', fontSize: '0.78rem', height: '28px', borderRadius: '6px', marginTop: '2px', background: 'var(--s1)', color: 'var(--text)', border: '1px solid var(--brd)' }}
+                        >
+                          <option value="">—</option>
+                          <option value="Sí">Sí</option>
+                          <option value="No">No</option>
+                        </select>
+                      );
+                    }
+                    return (
+                      <input 
+                        type={customField.tipo === 'numero' ? 'number' : customField.tipo === 'fecha' ? 'date' : 'text'} 
+                        className="inp" 
+                        value={cfs[k] || ''} 
+                        onChange={e => setCfs({...cfs, [k]: e.target.value})}
+                        style={{ padding: '4px 8px', fontSize: '0.78rem', height: '28px', borderRadius: '6px', marginTop: '2px', background: 'var(--s1)', color: 'var(--text)', border: '1px solid var(--brd)' }}
+                      />
+                    );
+                  }
+
+                  // 3. Standard Fields
+                  if (k === 'Nombre_Persona') {
+                    return <input type="text" className="inp" value={f.Nombre_Persona || ''} onChange={e => setF({...f, Nombre_Persona: e.target.value})} style={{ padding: '4px 8px', fontSize: '0.78rem', height: '28px', borderRadius: '6px', marginTop: '2px', background: 'var(--s1)', color: 'var(--text)', border: '1px solid var(--brd)' }} />;
+                  }
+                  if (k === 'Telefono') {
+                    return <input type="tel" className="inp" value={f.Telefono || ''} onChange={e => setF({...f, Telefono: e.target.value})} style={{ padding: '4px 8px', fontSize: '0.78rem', height: '28px', borderRadius: '6px', marginTop: '2px', background: 'var(--s1)', color: 'var(--text)', border: '1px solid var(--brd)' }} />;
+                  }
+                  if (k === 'Correo_Corp') {
+                    return <input type="email" className="inp" value={f.Correo_Corp || ''} onChange={e => setF({...f, Correo_Corp: e.target.value})} style={{ padding: '4px 8px', fontSize: '0.78rem', height: '28px', borderRadius: '6px', marginTop: '2px', background: 'var(--s1)', color: 'var(--text)', border: '1px solid var(--brd)' }} />;
+                  }
+                  if (k === 'Nombre_Empresa' || k === 'Empresa') {
+                    return <input type="text" className="inp" value={f.Nombre_Empresa || f.Empresa || ''} onChange={e => setF({...f, Nombre_Empresa: e.target.value})} style={{ padding: '4px 8px', fontSize: '0.78rem', height: '28px', borderRadius: '6px', marginTop: '2px', background: 'var(--s1)', color: 'var(--text)', border: '1px solid var(--brd)' }} />;
+                  }
+                  if (k === 'LID') {
+                    return <input type="text" className="inp" value={f.LID || ''} onChange={e => setF({...f, LID: e.target.value})} style={{ padding: '4px 8px', fontSize: '0.78rem', height: '28px', borderRadius: '6px', marginTop: '2px', background: 'var(--s1)', color: 'var(--text)', border: '1px solid var(--brd)' }} />;
+                  }
+                  if (k === 'Cumpleanos') {
+                    return <input type="text" className="inp" placeholder="05-20" maxLength={5} value={f.Cumpleanos || ''} onChange={e => setF({...f, Cumpleanos: e.target.value})} style={{ padding: '4px 8px', fontSize: '0.78rem', height: '28px', borderRadius: '6px', marginTop: '2px', background: 'var(--s1)', color: 'var(--text)', border: '1px solid var(--brd)' }} />;
+                  }
+
+                  // Default Fallback
+                  return (
+                    <input 
+                      type="text" 
+                      className="inp" 
+                      value={f[k] ?? cfs[k] ?? ''} 
+                      onChange={e => {
+                        if (f[k] !== undefined) setF({...f, [k]: e.target.value});
+                        else setCfs({...cfs, [k]: e.target.value});
+                      }} 
+                      style={{ padding: '4px 8px', fontSize: '0.78rem', height: '28px', borderRadius: '6px', marginTop: '2px', background: 'var(--s1)', color: 'var(--text)', border: '1px solid var(--brd)' }} 
+                    />
+                  );
+                };
+
+                return (
+                  <div style={{ background: 'var(--s2)', border: '1px solid var(--brd)', borderRadius: '8px', padding: '14px 16px', marginBottom: '16px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <p className="stitle" style={{ margin: 0, fontSize: '0.8rem', color: 'var(--navy)' }}>Vista 360° - Datos del Contacto</p>
+                        <button 
+                          onClick={doSavePerfil} 
+                          disabled={loading}
+                          className="btn btng"
+                          style={{ padding: '4px 10px', fontSize: '0.7rem', fontWeight: 700, borderRadius: '6px', height: '24px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                        >
+                          {loading ? 'Guardando...' : '💾 Guardar Datos'}
+                        </button>
+                      </div>
+                      
+                      {drawerQueue.length > 0 && onAdvanceQueue && (
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                          <button 
+                            className="btn btnda"
+                            disabled={drawerQueueIdx <= 0} 
+                            onClick={() => onAdvanceQueue(drawerQueue[drawerQueueIdx - 1], drawerQueueIdx - 1)}
+                            style={{ padding: '2px 8px', fontSize: '0.65rem' }}
+                            title="Contacto anterior"
+                          >
+                            ◀ Anterior
+                          </button>
+                          <span style={{ fontSize: '0.65rem', color: 'var(--muted)', fontWeight: 700 }}>
+                            {drawerQueueIdx + 1} / {drawerQueue.length}
+                          </span>
+                          <button 
+                            className="btn btnda"
+                            disabled={drawerQueueIdx >= drawerQueue.length - 1} 
+                            onClick={() => onAdvanceQueue(drawerQueue[drawerQueueIdx + 1], drawerQueueIdx + 1)}
+                            style={{ padding: '2px 8px', fontSize: '0.65rem' }}
+                            title="Siguiente contacto"
+                          >
+                            Siguiente ▶
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px' }}>
+                      {viewFields.map(k => (
+                        <div key={k} style={{ display: 'flex', flexDirection: 'column' }}>
+                          <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', color: 'var(--muted)', fontWeight: 700, letterSpacing: '0.5px' }}>{getLabel(k)}</span>
+                          {renderInput(k)}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+             })()}
 
             {/* 2. SECCIÓN CENTRAL: Acción */}
             <div style={{ background: 'var(--s1)', border: '1px solid var(--brd)', borderRadius: '8px', padding: '16px', marginBottom: '16px' }}>
