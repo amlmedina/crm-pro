@@ -4,13 +4,23 @@ import { useState, useMemo } from 'react';
 import { api } from '@/lib/api';
 import Swal from 'sweetalert2';
 
-export default function Funnel({ leads, cfg, user, openDrawer, openDrawerInQueue, setLeads, unreads, usersMap = {}, refreshLeads }) {
+export default function Funnel({ leads, cfg, user, openDrawer, openDrawerInQueue, setLeads, unreads, usersMap = {}, refreshLeads, isCensored }) {
   const [draggedId, setDraggedId] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchField, setSearchField] = useState('todos');
   const [activeFilters, setActiveFilters] = useState([]);
   const [selectedValues, setSelectedValues] = useState([]); // array, not Set — avoids React stale closure issues
   const [agentFilter, setAgentFilter] = useState('todos');
+
+  const cardFields = cfg.funnelCardFields || ['Telefono', 'Nombre_Empresa'];
+  const defaultLabels = { Telefono: 'Teléfono', Correo_Corp: 'Correo', Nombre_Persona: 'Nombre', Nombre_Empresa: 'Empresa', Cumpleanos: 'Cumpleaños', LID: 'LID (WhatsApp ID)' };
+  
+  const getLabel = k => defaultLabels[k] || cfg.camposPersonalizados?.find(c => c.key === k)?.label || k;
+  
+  const getVal = (l, k) => {
+    if (isCensored && isCensored(k) && l) return '••••••••••';
+    return l[k] || '—';
+  };
 
   const filterOptions = useMemo(() => {
     return [
@@ -559,10 +569,22 @@ export default function Funnel({ leads, cfg, user, openDrawer, openDrawerInQueue
                       <div className="kmeta">
                         {l.Estado_Funnel === 'Congelado' && <span className="ct">❄️ Congelado</span>}
                       </div>
-                      
+
+                      {/* Configurable extra fields */}
+                      {cardFields.length > 0 && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '5px', paddingTop: '5px', borderTop: '1px dashed var(--brd)' }}>
+                          {cardFields.map(k => (
+                            <div key={k} style={{ display: 'flex', gap: '3px', fontSize: '0.67rem', overflow: 'hidden' }}>
+                              <strong style={{ color: 'var(--muted)', flexShrink: 0 }}>{getLabel(k)}:</strong>
+                              <span style={{ color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{getVal(l, k)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
                       {/* Show assigned agent on card when manager views "todos" */}
                       {isManager && agentFilter === 'todos' && l.Agente_Asignado && (
-                        <div style={{ fontSize: '0.68rem', color: 'var(--muted)', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        <div style={{ fontSize: '0.68rem', color: 'var(--muted)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '3px' }}>
                           <span>👤</span> {resolveName(l.Agente_Asignado)}
                         </div>
                       )}
@@ -590,8 +612,18 @@ export default function Funnel({ leads, cfg, user, openDrawer, openDrawerInQueue
                   style={{ borderLeftColor: getAgentColor(resolveName(l.Agente_Asignado)) }}
                 >
                   <div className="kname" style={{ color: 'var(--muted)' }}>{l.Nombre_Persona}</div>
+                  {cardFields.length > 0 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '5px', paddingTop: '5px', borderTop: '1px dashed var(--brd)' }}>
+                      {cardFields.map(k => (
+                        <div key={k} style={{ display: 'flex', gap: '3px', fontSize: '0.67rem', overflow: 'hidden' }}>
+                          <strong style={{ color: 'var(--muted)', flexShrink: 0 }}>{getLabel(k)}:</strong>
+                          <span style={{ color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{getVal(l, k)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   {isManager && agentFilter === 'todos' && l.Agente_Asignado && (
-                    <div style={{ fontSize: '0.68rem', color: 'var(--muted)', marginTop: '2px' }}>👤 {resolveName(l.Agente_Asignado)}</div>
+                    <div style={{ fontSize: '0.68rem', color: 'var(--muted)', marginTop: '4px' }}>👤 {resolveName(l.Agente_Asignado)}</div>
                   )}
                 </div>
               ))}
