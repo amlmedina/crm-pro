@@ -205,7 +205,10 @@ export default function Drawer({ open, onClose, lead, leads, setLeads, tab, setT
 
         const sub = document.createElement('div');
         sub.style.cssText = 'font-size:0.74rem;color:#888';
-        sub.textContent = [l.Nombre_Empresa, l.Telefono, l.Correo_Corp].filter(Boolean).join(' · ');
+        // Use configured fields from admin, excluding Nombre_Persona (already shown as title)
+        const subFields = (cfg?.linkSearchFields || ['Nombre_Empresa', 'Telefono', 'Correo_Corp'])
+          .filter(k => k !== 'Nombre_Persona');
+        sub.textContent = subFields.map(k => l[k]).filter(Boolean).join(' · ');
 
         item.appendChild(name);
         item.appendChild(sub);

@@ -14,6 +14,7 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
   const [censoredFields, setCensoredFields] = useState([]);
   const [view360Fields, setView360Fields] = useState([]);
   const [funnelCardFields, setFunnelCardFields] = useState([]);
+  const [linkSearchFields, setLinkSearchFields] = useState([]);
   const [waPredefs, setWaPredefs] = useState([]);
   const [bdayDefaultMessage, setBdayDefaultMessage] = useState('');
   const [defaultTheme, setDefaultTheme] = useState('galaxia');
@@ -46,6 +47,7 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
       setCensoredFields(cfg.censoredFields || []);
       setView360Fields(cfg.view360Fields || ['Nombre_Persona', 'Telefono', 'Correo_Corp', 'Nombre_Empresa']);
       setFunnelCardFields(cfg.funnelCardFields || ['Telefono', 'Nombre_Empresa']);
+      setLinkSearchFields(cfg.linkSearchFields || ['Nombre_Persona', 'Telefono', 'Correo_Corp', 'Nombre_Empresa']);
       setBdayDefaultMessage(cfg.bdayDefaultMessage || '¡Hola {Nombre_Persona}! 🎉 Hoy es tu día especial. De parte de todo el equipo, te deseamos un feliz cumpleaños. ¡Que lo disfrutes mucho!');
       setDefaultTheme(cfg.defaultTheme || 'galaxia');
     }
@@ -122,6 +124,7 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
       censoredFields: censoredFields,
       view360Fields: view360Fields,
       funnelCardFields: funnelCardFields,
+      linkSearchFields: linkSearchFields,
       wa_predefs: waPredefs.filter(p => p.text?.trim() || p.title?.trim()),
       bdayDefaultMessage: bdayDefaultMessage.trim() || '¡Hola {Nombre_Persona}! 🎉 Hoy es tu día especial. ¡Feliz cumpleaños!',
       defaultTheme: defaultTheme
@@ -500,7 +503,7 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
 
       {/* Pipeline sub-tabs */}
       <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '20px', background: 'var(--s2)', padding: '6px', borderRadius: '10px', border: '1px solid var(--brd)' }}>
-        {[['etapas','🔀 Etapas'],['campos','📋 Campos'],['vista360','👁 Vista 360°'],['tarjetas','🃏 Tarjetas Kanban']].map(([id, label]) => (
+        {[['etapas','🔀 Etapas'],['campos','📋 Campos'],['vista360','👁 Vista 360°'],['tarjetas','🃏 Tarjetas Kanban'],['vinculacion','🔗 Vinculación']].map(([id, label]) => (
           <button key={id} onClick={() => setPipelineTab(id)} style={{ padding: '7px 14px', borderRadius: '7px', border: 'none', cursor: 'pointer', fontWeight: pipelineTab===id?700:500, fontSize: '0.8rem', background: pipelineTab===id?'var(--navy)':'transparent', color: pipelineTab===id?'#fff':'var(--muted)', transition: 'all .15s', flex: '0 0 auto' }}>{label}</button>
         ))}
       </div>
@@ -749,6 +752,73 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
         )}
       </div>
       )} {/* end tarjetas sub-tab */}
+
+      {pipelineTab === 'vinculacion' && (
+      <div className="acard">
+        <h3>🔗 Campos en Buscador de Vinculación</h3>
+        <p style={{ fontSize: '0.72rem', color: 'var(--muted)', marginBottom: '15px' }}>Selecciona qué campos aparecen como información secundaria al buscar un contacto para vincular con un desconocido de WhatsApp. Esto ayuda a identificar mejor al prospecto correcto.</p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', paddingBottom: '16px' }}>
+          {[
+            { key: 'Nombre_Empresa', label: 'Empresa' },
+            { key: 'Telefono', label: 'Teléfono' },
+            { key: 'Correo_Corp', label: 'Correo' },
+            { key: 'LID', label: 'LID (WhatsApp ID)' },
+            { key: 'Estado_Funnel', label: 'Etapa del Funnel' },
+            ...(campos || []).map(c => ({ key: c.key, label: c.label }))
+          ].map(f => (
+            <label key={f.key} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', color: 'var(--text)', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={linkSearchFields.includes(f.key)}
+                onChange={(e) => {
+                  if (e.target.checked) setLinkSearchFields([...linkSearchFields, f.key]);
+                  else setLinkSearchFields(linkSearchFields.filter(k => k !== f.key));
+                }}
+                style={{ accentColor: 'var(--navy)', transform: 'scale(1.1)' }}
+              />
+              {f.label}
+            </label>
+          ))}
+        </div>
+
+        {linkSearchFields.length > 0 && (
+          <div style={{ marginTop: '16px' }}>
+            <h4 style={{ fontSize: '0.78rem', fontWeight: 700, marginBottom: '8px', color: 'var(--text)' }}>↕️ Ordenar campos mostrados</h4>
+            <p style={{ fontSize: '0.68rem', color: 'var(--muted)', marginBottom: '12px' }}>El primer campo siempre es el nombre. Reordena los campos secundarios.</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxWidth: '400px' }}>
+              {linkSearchFields.map((fieldKey, idx) => {
+                const allOpts = [
+                  { key: 'Nombre_Empresa', label: 'Empresa' },
+                  { key: 'Telefono', label: 'Teléfono' },
+                  { key: 'Correo_Corp', label: 'Correo' },
+                  { key: 'LID', label: 'LID (WhatsApp ID)' },
+                  { key: 'Estado_Funnel', label: 'Etapa del Funnel' },
+                  ...(campos || []).map(c => ({ key: c.key, label: c.label }))
+                ];
+                const label = allOpts.find(o => o.key === fieldKey)?.label || fieldKey;
+                return (
+                  <div key={fieldKey} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--s2)', padding: '6px 12px', borderRadius: '6px', border: '1px solid var(--brd)' }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text)', fontWeight: 600 }}>{label}</span>
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      <button onClick={() => {
+                          if (idx > 0) {
+                            const f = [...linkSearchFields]; const t = f[idx]; f[idx] = f[idx-1]; f[idx-1] = t; setLinkSearchFields(f);
+                          }
+                        }} disabled={idx === 0} style={{ padding: '2px 8px', fontSize: '0.7rem', borderRadius: '4px', border: '1px solid var(--brd)', background: 'var(--s1)', color: 'var(--text)', cursor: idx === 0 ? 'not-allowed' : 'pointer', opacity: idx === 0 ? 0.4 : 1 }} title="Subir">▲</button>
+                      <button onClick={() => {
+                          if (idx < linkSearchFields.length - 1) {
+                            const f = [...linkSearchFields]; const t = f[idx]; f[idx] = f[idx+1]; f[idx+1] = t; setLinkSearchFields(f);
+                          }
+                        }} disabled={idx === linkSearchFields.length - 1} style={{ padding: '2px 8px', fontSize: '0.7rem', borderRadius: '4px', border: '1px solid var(--brd)', background: 'var(--s1)', color: 'var(--text)', cursor: idx === linkSearchFields.length - 1 ? 'not-allowed' : 'pointer', opacity: idx === linkSearchFields.length - 1 ? 0.4 : 1 }} title="Bajar">▼</button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+      )} {/* end vinculacion sub-tab */}
       </> /* end pipeline */}
 
       {/* ══ WHATSAPP PREDEFS + BDAY ═══════════════════════════ */}
