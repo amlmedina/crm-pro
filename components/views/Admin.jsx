@@ -16,6 +16,7 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
   const [funnelCardFields, setFunnelCardFields] = useState([]);
   const [waPredefs, setWaPredefs] = useState([]);
   const [bdayDefaultMessage, setBdayDefaultMessage] = useState('');
+  const [defaultTheme, setDefaultTheme] = useState('galaxia');
 
   // Users state
   const [users, setUsers] = useState([]);
@@ -46,6 +47,7 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
       setView360Fields(cfg.view360Fields || ['Nombre_Persona', 'Telefono', 'Correo_Corp', 'Nombre_Empresa']);
       setFunnelCardFields(cfg.funnelCardFields || ['Telefono', 'Nombre_Empresa']);
       setBdayDefaultMessage(cfg.bdayDefaultMessage || '¡Hola {Nombre_Persona}! 🎉 Hoy es tu día especial. De parte de todo el equipo, te deseamos un feliz cumpleaños. ¡Que lo disfrutes mucho!');
+      setDefaultTheme(cfg.defaultTheme || 'galaxia');
     }
     loadUsers();
     loadWaStatus();
@@ -121,7 +123,8 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
       view360Fields: view360Fields,
       funnelCardFields: funnelCardFields,
       wa_predefs: waPredefs.filter(p => p.text?.trim() || p.title?.trim()),
-      bdayDefaultMessage: bdayDefaultMessage.trim() || '¡Hola {Nombre_Persona}! 🎉 Hoy es tu día especial. ¡Feliz cumpleaños!'
+      bdayDefaultMessage: bdayDefaultMessage.trim() || '¡Hola {Nombre_Persona}! 🎉 Hoy es tu día especial. ¡Feliz cumpleaños!',
+      defaultTheme: defaultTheme
     };
 
     try {
@@ -909,9 +912,10 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
       )} {/* end bday */}
 
       {adminTab === 'apariencia' && (
+      <>
       <div className="acard" style={{ borderLeft: '4px solid var(--navy)' }}>
-        <h3 style={{ marginBottom: '6px', fontSize: '0.86rem' }}>Tema Visual</h3>
-        <p style={{ fontSize: '0.73rem', color: 'var(--muted)', marginBottom: '16px' }}>Selecciona el estilo visual de la plataforma. El cambio es instantáneo y se guarda en tu navegador.</p>
+        <h3 style={{ marginBottom: '6px', fontSize: '0.86rem' }}>Mi Tema Personal</h3>
+        <p style={{ fontSize: '0.73rem', color: 'var(--muted)', marginBottom: '16px' }}>Selecciona tu estilo visual. El cambio es instantáneo y se guarda únicamente en tu navegador.</p>
         <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
           {Object.values(THEMES).map(t => (
             <button
@@ -941,10 +945,42 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
         </div>
       </div>
 
+      <div className="acard" style={{ borderLeft: '4px solid var(--green)', marginTop: '20px' }}>
+        <h3 style={{ marginBottom: '6px', fontSize: '0.86rem' }}>Tema por Defecto de la Plataforma (para todos)</h3>
+        <p style={{ fontSize: '0.73rem', color: 'var(--muted)', marginBottom: '16px' }}>Establece el tema predeterminado para todos los usuarios que no tengan una preferencia personal guardada. <b>Nota:</b> Recuerda hacer clic en "Guardar Configuración" al final.</p>
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+          {Object.values(THEMES).map(t => (
+            <button
+              key={t.id}
+              onClick={() => setDefaultTheme(t.id)}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '14px 18px',
+                borderRadius: '12px',
+                border: defaultTheme === t.id ? `2px solid ${t.preview}` : '2px solid var(--brd)',
+                background: defaultTheme === t.id ? `${t.preview}18` : 'var(--s2)',
+                cursor: 'pointer',
+                transition: 'all .2s',
+                boxShadow: defaultTheme === t.id ? `0 0 12px ${t.preview}44` : 'none',
+                minWidth: '90px'
+              }}
+            >
+              <div style={{ width: 36, height: 36, borderRadius: '50%', background: t.preview, boxShadow: `0 2px 8px ${t.preview}66` }} />
+              <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text)' }}>{t.name}</span>
+              <span style={{ fontSize: '0.65rem', color: 'var(--muted)', textAlign: 'center' }}>{t.description}</span>
+              {defaultTheme === t.id && <span style={{ fontSize: '0.65rem', color: t.preview, fontWeight: 800 }}>✓ Predeterminado</span>}
+            </button>
+          ))}
+        </div>
+      </div>
+      </>
       )} {/* end apariencia */}
 
       {/* Save button: visible on pipeline, whatsapp, privacidad tabs */}
-      {['pipeline','whatsapp','privacidad'].includes(adminTab) && (
+      {['pipeline','whatsapp','privacidad','apariencia'].includes(adminTab) && (
       <button className="btn btny btnw" style={{marginBottom:'40px', padding:'12px'}} onClick={doSaveConfig}>
         💾 Guardar Configuración
       </button>

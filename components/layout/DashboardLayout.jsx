@@ -119,6 +119,14 @@ export default function DashboardLayout({ user }) {
         api('getContacts', { userId: user.id, userRole: user.rol })
       ]);
       setCfg(resCfg);
+      if (typeof window !== 'undefined') {
+        const hasSavedLocal = localStorage.getItem(THEME_STORAGE_KEY);
+        if (!hasSavedLocal) {
+          const platformDefault = resCfg.defaultTheme || 'galaxia';
+          applyTheme(platformDefault);
+          setCurrentTheme(platformDefault);
+        }
+      }
       const newLeads = resContacts.data || [];
       setLeads(newLeads);
       leadsRef.current = newLeads; // Update ref synchronously for fetchWAData
