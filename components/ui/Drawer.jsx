@@ -73,40 +73,48 @@ export default function Drawer({ open, onClose, lead, leads, setLeads, tab, setT
     setWaLoadingHist(false);
   }
 
-  async function sendWaMessage() {
-    if (!waMsg.trim()) return;
-    // Prefer LID if available, otherwise use Telefono
+  async function sendWaText(txt) {
+    if (!txt.trim()) return false;
     const target = lead?.LID || lead?.Telefono;
-    if (!target) return;
+    if (!target) return false;
     
     setWaSending(true);
     setWaError('');
+    let success = false;
     try {
       const res = await fetch('/api/whatsapp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'send', to: target, message: waMsg.trim() })
+        body: JSON.stringify({ action: 'send', to: target, message: txt.trim() })
       });
       const data = await res.json();
       if (!res.ok) {
         setWaError(data.error || 'No se pudo enviar el mensaje');
       } else {
-        // Optimistic update
         const newMsg = {
           id: Date.now(),
           to: target,
-          message: waMsg.trim(),
+          message: txt.trim(),
           createdAt: new Date().toISOString(),
           status: 'sent',
           fromMe: true
         };
         setWaMessages(prev => [...prev, newMsg]);
-        setWaMsg('');
+        success = true;
       }
     } catch {
       setWaError('Error de conexión con MiBot');
     }
     setWaSending(false);
+    return success;
+  }
+
+  async function sendWaMessage() {
+    if (!waMsg.trim()) return;
+    const ok = await sendWaText(waMsg);
+    if (ok) {
+      setWaMsg('');
+    }
   }
 
   // Scroll al último mensaje cuando cambia la lista
@@ -148,58 +156,129 @@ export default function Drawer({ open, onClose, lead, leads, setLeads, tab, setT
 
   // ─────────────────────────────────────────────────────────
   async function mergeVirtualLead() {
-     const options = {};
-     leads.filter(l => !l.isUnknown && l.Nombre_Persona).forEach(l => {
-       options[l.ID_Contacto] = `${l.Nombre_Persona} (${l.Nombre_Empresa || 'Sin empresa'}) - ${l.Telefono || 'Sin Tel'}`;
-     });
+    // Extract pushName from Nombre_Persona (format: "{name} [LID]" or "Desconocido (...)")
+    const rawName = lead?.Nombre_Persona || '';
+    const initialQuery = rawName.replace(/\s*\[LID\]$/i, '').replace(/^Desconocido\s*\(.*\)$/i, '').trim();
 
-     const { value: selectedId } = await Swal.fire({
-       title: 'Vincular Contacto',
-       text: 'Selecciona el lead existente al cual asignar este número / LID.',
-       input: 'select',
-       inputOptions: options,
-       inputPlaceholder: '— Selecciona un Contacto —',
-       showCancelButton: true,
-       confirmButtonText: 'Vincular',
-       cancelButtonText: 'Cancelar'
-     });
+    const knownLeads = leads.filter(l => !l.isUnknown && l.Nombre_Persona);
 
-     if (selectedId) {
-        const targetLead = leads.find(l => String(l.ID_Contacto) === String(selectedId));
-        if (targetLead) {
-           console.log("[DEBUG-MERGE] Target Lead Antes:", JSON.stringify(targetLead));
-           const backupLid = targetLead.LID;
-           
-           // State-safe update
-           const updatedLead = { ...targetLead, LID: lead.Telefono };
-           updatedLead.Notas = (updatedLead.Notas || '') + `\n[Sistema] Contacto vinculado con LID: ${lead.Telefono}${backupLid ? ` (LID anterior: ${backupLid})` : ''}`;
-           
-           console.log("[DEBUG-MERGE] Proyectado para Guardar:", JSON.stringify(updatedLead));
-           
-           setLoading(true);
-           try {
-              const res = await api('saveProfile', { perfil: updatedLead, userId: user.id });
-              console.log("[DEBUG-MERGE] Respuesta de API:", JSON.stringify(res));
+    const renderSuggestions = (query) => {
+      const q = query.toLowerCase().trim();
+      if (!q) return knownLeads.slice(0, 8);
+      return knownLeads.filter(l =>
+        (l.Nombre_Persona || '').toLowerCase().includes(q) ||
+        (l.Telefono || '').includes(q) ||
+        (l.Correo_Corp || '').toLowerCase().includes(q) ||
+        (l.Nombre_Empresa || '').toLowerCase().includes(q)
+      ).slice(0, 10);
+    };
 
-              // No need to merge chats physically if we "mix" them in the UI,
-              // but we keep the redundant merge_chats call just in case or for legacy data.
-              if (backupLid) {
-                 await fetch('/api/whatsapp', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'merge_chats', from_phone: backupLid, to_phone: lead.Telefono })
-                 }).catch(() => {});
-              }
+    const buildListHtml = (results) => {
+      if (results.length === 0) return '<div style="padding:14px;color:#888;font-size:0.82rem;text-align:center">Sin resultados</div>';
+      return results.map(l => [
+        `<div class="ac-item" data-id="${l.ID_Contacto}"`,
+        `style="padding:10px 14px;cursor:pointer;border-bottom:1px solid #eee;transition:background .15s"`,
+        `onmouseenter="this.style.background='#f0f4ff'" onmouseleave="this.style.background=''">`,
+        `<div style="font-weight:700;font-size:0.88rem;color:#222">${l.Nombre_Persona}</div>`,
+        `<div style="font-size:0.74rem;color:#888">${[l.Nombre_Empresa, l.Telefono, l.Correo_Corp].filter(Boolean).join(' · ')}</div>`,
+        `</div>`
+      ].join('')).join('');
+    };
 
-              await refreshLeads();
-              onClose();
-              Swal.fire('Vinculado', 'El ID de WhatsApp ha sido enlazado a este cliente sin reemplazar su teléfono.', 'success');
-           } catch {
-              Swal.fire('Error', 'No se pudo vincular en la base de datos.', 'error');
-           }
-           setLoading(false);
+    const htmlContent = [
+      '<div style="text-align:left">',
+      '<p style="font-size:0.82rem;color:#666;margin:0 0 10px 0">Busca por nombre, teléfono, correo o empresa.</p>',
+      `<input id="ac-input" type="text" value="${initialQuery.replace(/"/g, '&quot;')}" placeholder="Nombre, teléfono o correo…"`,
+      'style="width:100%;box-sizing:border-box;padding:10px 14px;border:2px solid #ccc;border-radius:8px;font-size:0.9rem;outline:none;font-family:inherit;margin-bottom:6px"',
+      'onfocus="this.style.borderColor=\'#4f46e5\'" onblur="this.style.borderColor=\'#ccc\'"/>',
+      '<div id="ac-results" style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;max-height:260px;overflow-y:auto;background:#fff"></div>',
+      '<p id="ac-selected-label" style="font-size:0.78rem;color:#4f46e5;margin:8px 0 0 0;font-weight:600;min-height:18px"></p>',
+      '</div>'
+    ].join('');
+
+    let selectedId = null;
+
+    const attachListeners = () => {
+      const resultsBox = document.getElementById('ac-results');
+      const label = document.getElementById('ac-selected-label');
+      const input = document.getElementById('ac-input');
+      if (!resultsBox) return;
+      resultsBox.querySelectorAll('.ac-item').forEach(el => {
+        el.addEventListener('click', () => {
+          selectedId = el.dataset.id;
+          const found = knownLeads.find(l => String(l.ID_Contacto) === String(selectedId));
+          if (found) {
+            input.value = found.Nombre_Persona;
+            label.textContent = `✅ Seleccionado: ${found.Nombre_Persona}`;
+            resultsBox.innerHTML = '';
+          }
+        });
+      });
+    };
+
+    const refreshResults = (q) => {
+      const resultsBox = document.getElementById('ac-results');
+      if (!resultsBox) return;
+      resultsBox.innerHTML = buildListHtml(renderSuggestions(q));
+      attachListeners();
+    };
+
+    const result = await Swal.fire({
+      title: '🔗 Vincular Contacto',
+      html: htmlContent,
+      showCancelButton: true,
+      confirmButtonText: 'Vincular',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#4f46e5',
+      width: 480,
+      didOpen: () => {
+        const input = document.getElementById('ac-input');
+        const label = document.getElementById('ac-selected-label');
+        // Show initial suggestions
+        refreshResults(initialQuery);
+        input.addEventListener('input', (e) => {
+          selectedId = null;
+          if (label) label.textContent = '';
+          refreshResults(e.target.value);
+        });
+        input.focus();
+        input.select();
+      },
+      preConfirm: () => {
+        if (!selectedId) {
+          Swal.showValidationMessage('Por favor selecciona un contacto de la lista');
+          return false;
         }
-     }
+        return selectedId;
+      }
+    });
+
+    if (result.isConfirmed && result.value) {
+       const targetLead = leads.find(l => String(l.ID_Contacto) === String(result.value));
+       if (targetLead) {
+          const backupLid = targetLead.LID;
+          const updatedLead = { ...targetLead, LID: lead.Telefono };
+          updatedLead.Notas = (updatedLead.Notas || '') + `\n[Sistema] Contacto vinculado con LID: ${lead.Telefono}${backupLid ? ` (LID anterior: ${backupLid})` : ''}`;
+
+          setLoading(true);
+          try {
+             await api('saveProfile', { perfil: updatedLead, userId: user.id });
+             if (backupLid) {
+                await fetch('/api/whatsapp', {
+                   method: 'POST',
+                   headers: { 'Content-Type': 'application/json' },
+                   body: JSON.stringify({ action: 'merge_chats', from_phone: backupLid, to_phone: lead.Telefono })
+                }).catch(() => {});
+             }
+             await refreshLeads();
+             onClose();
+             Swal.fire('✅ Vinculado', `LID enlazado a <b>${targetLead.Nombre_Persona}</b> correctamente.`, 'success');
+          } catch {
+             Swal.fire('Error', 'No se pudo vincular en la base de datos.', 'error');
+          }
+          setLoading(false);
+       }
+    }
   }
   // ─────────────────────────────────────────────────────────
   // Quick Actions (Tasks & Status)
@@ -303,6 +382,41 @@ export default function Drawer({ open, onClose, lead, leads, setLeads, tab, setT
     "¿Tendrás disponibilidad para una llamada?",
     "¡Gracias por tu interés!"
   ];
+
+  // Resolve {Variable} placeholders using lead + custom fields data
+  function resolveVars(text) {
+    if (!text || !lead) return text || '';
+    const allData = { ...lead, ...Object.fromEntries((cfg.camposPersonalizados || []).map(c => [c.key, lead[c.key] || ''])) };
+    return text.replace(/\{(\w+)\}/g, (_, key) => (allData[key] !== undefined && allData[key] !== '') ? allData[key] : `{${key}}`);
+  }
+
+  // Send image + caption via WhatsApp
+  async function sendWaImage(imageBase64, captionText) {
+    const target = lead?.LID || lead?.Telefono;
+    if (!target) return;
+    setWaSending(true);
+    setWaError('');
+    try {
+      const res = await fetch('/api/whatsapp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'send_image', to: target, imageBase64, caption: captionText })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setWaError(data.error || 'No se pudo enviar la imagen');
+      } else {
+        setWaMessages(prev => [...prev, {
+          id: Date.now(), to: target,
+          message: captionText ? `[Imagen] ${captionText}` : '[Imagen]',
+          createdAt: new Date().toISOString(), status: 'sent', fromMe: true
+        }]);
+      }
+    } catch {
+      setWaError('Error de conexión al enviar imagen');
+    }
+    setWaSending(false);
+  }
   // ─────────────────────────────────────────────────────────
 
   // Sincronizar data inicial cuando se abre el drawer
@@ -910,7 +1024,14 @@ export default function Drawer({ open, onClose, lead, leads, setLeads, tab, setT
                  return (
                    <button 
                      key={idx} 
-                     onClick={() => setWaMsg(text)}
+                     onClick={async () => {
+                       const resolvedText = resolveVars(text);
+                       if (isObj && p.imageBase64) {
+                         await sendWaImage(p.imageBase64, resolvedText);
+                       } else {
+                         await sendWaText(resolvedText);
+                       }
+                     }}
                      title={text}
                      style={{ background: 'var(--s2)', border: '1px solid var(--brd)', borderRadius: '12px', padding: '5px 12px', fontSize: '0.72rem', color: 'var(--muted)', fontWeight: 600, cursor: 'pointer', flexShrink: 0 }}
                    >

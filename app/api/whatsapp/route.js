@@ -90,7 +90,7 @@ export async function POST(req) {
     }
 
     try {
-        const { action, to, message, from_phone, to_phone } = await req.json();
+        const { action, to, message, from_phone, to_phone, imageBase64, caption } = await req.json();
 
         if (!action) {
             return NextResponse.json({ error: 'Parámetros insuficientes' }, { status: 400 });
@@ -148,6 +148,44 @@ export async function POST(req) {
             });
             
             // Persistir inmediatamente en el disco (Improves cloud sync)
+            persistMessages(msgs);
+
+            return NextResponse.json({ ok: true, to: phone });
+        }
+
+
+        // ── SEND IMAGE ──────────────────────────────────────────────
+        if (action === 'send_image') {
+            const sock = getSocket();
+            const phone = cleanPhone(to || '');
+
+            if (!phone) return NextResponse.json({ error: 'Número requerido' }, { status: 400 });
+            if (!imageBase64) return NextResponse.json({ error: 'Imagen requerida (base64)' }, { status: 400 });
+            if (!sock) return NextResponse.json({ error: 'WhatsApp no conectado.' }, { status: 503 });
+            if (!getStatus().connected) return NextResponse.json({ error: 'WhatsApp desconectado.' }, { status: 503 });
+
+            // Convert base64 data URI to Buffer
+            const matches = imageBase64.match(/^data:(.+);base64,(.+)$/);
+            if (!matches) return NextResponse.json({ error: 'Formato de imagen inválido' }, { status: 400 });
+            const mimeType = matches[1];
+            const imgBuffer = Buffer.from(matches[2], 'base64');
+
+            const jid = toJid(phone);
+            await sock.sendMessage(jid, {
+                image: imgBuffer,
+                mimetype: mimeType,
+                caption: caption?.trim() || ''
+            });
+
+            const msgs = getMessages();
+            if (!msgs[phone]) msgs[phone] = [];
+            msgs[phone].push({
+                id: `sent_img_${Date.now()}`,
+                from: phone,
+                text: caption?.trim() ? `[Imagen] ${caption.trim()}` : '[Imagen]',
+                fromMe: true,
+                timestamp: Date.now(),
+            });
             persistMessages(msgs);
 
             return NextResponse.json({ ok: true, to: phone });

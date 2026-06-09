@@ -753,43 +753,141 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
 
       <div className="acard">
         <h3>Respuestas Rápidas (WhatsApp)</h3>
-        <p style={{ fontSize: '0.72rem', color: 'var(--muted)', marginBottom: '10px' }}>Cada recuadro es un mensaje predefinido individual. Aparecerán como botones inyectables en los chats.</p>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <p style={{ fontSize: '0.72rem', color: 'var(--muted)', marginBottom: '10px' }}>
+          Cada recuadro es un mensaje predefinido. Puedes insertar <strong>variables</strong> e incluir una <strong>imagen</strong> adjunta.
+        </p>
+
+        {/* Variable legend */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '14px', padding: '10px', background: 'var(--s2)', borderRadius: '8px', border: '1px solid var(--brd)' }}>
+          <span style={{ fontSize: '0.7rem', color: 'var(--muted)', fontWeight: 700, width: '100%', marginBottom: '4px' }}>📌 Variables disponibles (click para copiar al portapapeles):</span>
+          {[
+            { key: 'Nombre_Persona', label: 'Nombre' },
+            { key: 'Telefono', label: 'Teléfono' },
+            { key: 'Correo_Corp', label: 'Correo' },
+            { key: 'Nombre_Empresa', label: 'Empresa' },
+            ...(campos || []).map(c => ({ key: c.key, label: c.label }))
+          ].map(v => (
+            <button
+              key={v.key}
+              onClick={() => navigator.clipboard?.writeText(`{${v.key}}`).catch(() => {})}
+              title={`Copia: {${v.key}}`}
+              style={{ padding: '3px 8px', fontSize: '0.7rem', borderRadius: '4px', border: '1px solid var(--brd)', background: 'var(--s1)', color: 'var(--navy)', cursor: 'pointer', fontFamily: 'monospace', fontWeight: 700 }}
+            >
+              {`{${v.key}}`}
+            </button>
+          ))}
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {waPredefs.map((obj, idx) => (
-            <div key={idx} style={{ display: 'flex', gap: '8px', background: 'var(--s2)', padding: '10px', borderRadius: '6px', border: '1px solid var(--brd)' }}>
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <input 
-                  type="text" 
-                  value={obj.title || ''} 
+            <div key={idx} style={{ background: 'var(--s2)', padding: '12px', borderRadius: '8px', border: '1px solid var(--brd)' }}>
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                <input
+                  type="text"
+                  value={obj.title || ''}
                   onChange={e => {
                     const np = [...waPredefs];
                     np[idx] = { ...np[idx], title: e.target.value };
                     setWaPredefs(np);
-                  }} 
-                  placeholder="Título corto del botón (Ej: Saludo)"
-                  style={{ padding: '6px 8px', borderRadius: '4px', border: '1px solid var(--brd)', fontFamily: 'inherit', fontSize: '0.8rem', fontWeight: 600 }}
+                  }}
+                  placeholder="Título del botón (Ej: Saludo)"
+                  style={{ flex: 1, padding: '6px 8px', borderRadius: '4px', border: '1px solid var(--brd)', fontFamily: 'inherit', fontSize: '0.8rem', fontWeight: 600 }}
                 />
-                <textarea 
-                  value={obj.text || ''} 
-                  onChange={e => {
-                    const np = [...waPredefs];
-                    np[idx] = { ...np[idx], text: e.target.value };
-                    setWaPredefs(np);
-                  }} 
-                  placeholder="Escribe el mensaje completo a inyectar..."
-                  style={{ minHeight: '60px', padding: '8px', borderRadius: '4px', border: '1px solid var(--brd)', fontFamily: 'inherit', resize: 'vertical' }}
-                />
+                <button
+                  className="btn btndel"
+                  onClick={() => setWaPredefs(waPredefs.filter((_, i) => i !== idx))}
+                  style={{ padding: '4px 12px', flexShrink: 0 }}
+                >✕</button>
               </div>
-              <button 
-                className="btn btndel" 
-                onClick={() => setWaPredefs(waPredefs.filter((_, i) => i !== idx))}
-                style={{ padding: '0 12px', height: 'fit-content' }}
-              >✕</button>
+
+              <textarea
+                value={obj.text || ''}
+                onChange={e => {
+                  const np = [...waPredefs];
+                  np[idx] = { ...np[idx], text: e.target.value };
+                  setWaPredefs(np);
+                }}
+                placeholder="Escribe el mensaje. Usa {Nombre_Persona}, {Telefono}, {Nombre_Empresa}, etc."
+                style={{ width: '100%', minHeight: '70px', padding: '8px', borderRadius: '4px', border: '1px solid var(--brd)', fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box', fontSize: '0.82rem' }}
+              />
+
+              {/* Variable insertion buttons */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '4px', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.68rem', color: 'var(--muted)', fontWeight: 600 }}>Insertar variable:</span>
+                {[
+                  { key: 'Nombre_Persona', label: 'Nombre' },
+                  { key: 'Telefono', label: 'Teléfono' },
+                  { key: 'Correo_Corp', label: 'Correo' },
+                  { key: 'Nombre_Empresa', label: 'Empresa' },
+                  ...(campos || []).map(c => ({ key: c.key, label: c.label }))
+                ].map(v => (
+                  <button
+                    key={v.key}
+                    type="button"
+                    onClick={() => {
+                      const np = [...waPredefs];
+                      const txt = np[idx].text || '';
+                      np[idx] = { ...np[idx], text: txt + `{${v.key}}` };
+                      setWaPredefs(np);
+                    }}
+                    style={{
+                      padding: '2px 6px',
+                      fontSize: '0.65rem',
+                      borderRadius: '4px',
+                      border: '1px solid var(--brd)',
+                      background: 'var(--s1)',
+                      color: 'var(--navy)',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    +{v.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Image upload */}
+              <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ padding: '4px 10px', borderRadius: '5px', border: '1px solid var(--brd)', background: 'var(--s1)', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text)' }}>
+                    📎 {obj.imageBase64 ? 'Cambiar imagen' : 'Adjuntar imagen'}
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={e => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      if (file.size > 5 * 1024 * 1024) { alert('La imagen no debe superar 5 MB'); return; }
+                      const reader = new FileReader();
+                      reader.onload = ev => {
+                        const np = [...waPredefs];
+                        np[idx] = { ...np[idx], imageBase64: ev.target.result };
+                        setWaPredefs(np);
+                      };
+                      reader.readAsDataURL(file);
+                    }}
+                  />
+                </label>
+                {obj.imageBase64 && (
+                  <>
+                    <img src={obj.imageBase64} alt="preview" style={{ width: 44, height: 44, objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--brd)' }} />
+                    <button
+                      onClick={() => {
+                        const np = [...waPredefs];
+                        np[idx] = { ...np[idx], imageBase64: null };
+                        setWaPredefs(np);
+                      }}
+                      style={{ fontSize: '0.7rem', color: 'var(--red)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                    >✕ Quitar</button>
+                  </>
+                )}
+              </div>
             </div>
           ))}
-          <button 
-            className="btn btnda" 
-            onClick={() => setWaPredefs([...waPredefs, { title: '', text: '' }])}
+          <button
+            className="btn btnda"
+            onClick={() => setWaPredefs([...waPredefs, { title: '', text: '', imageBase64: null }])}
             style={{ width: 'fit-content' }}
           >+ Agregar Respuesta</button>
         </div>
