@@ -158,74 +158,81 @@ export default function Drawer({ open, onClose, lead, leads, setLeads, tab, setT
   async function mergeVirtualLead() {
     // Extract pushName from Nombre_Persona (format: "{name} [LID]" or "Desconocido (...)")
     const rawName = lead?.Nombre_Persona || '';
-    const initialQuery = rawName.replace(/\s*\[LID\]$/i, '').replace(/^Desconocido\s*\(.*\)$/i, '').trim();
+    const initialQuery = rawName
+      .replace(/\s*\[LID\]$/i, '')
+      .replace(/^Desconocido\s*\(.*\)$/i, '')
+      .trim();
 
-    const knownLeads = leads.filter(l => !l.isUnknown && l.Nombre_Persona);
+    const knownLeads = leads.filter(l =>
+      l.Nombre_Persona && !l.Nombre_Persona.toLowerCase().startsWith('desconocido')
+    );
+
+    let selectedId = null;
 
     const renderSuggestions = (query) => {
-      const q = query.toLowerCase().trim();
+      const q = (query || '').toLowerCase().trim();
       if (!q) return knownLeads.slice(0, 8);
       return knownLeads.filter(l =>
         (l.Nombre_Persona || '').toLowerCase().includes(q) ||
-        (l.Telefono || '').includes(q) ||
+        String(l.Telefono || '').includes(q) ||
         (l.Correo_Corp || '').toLowerCase().includes(q) ||
         (l.Nombre_Empresa || '').toLowerCase().includes(q)
       ).slice(0, 10);
     };
 
-    const buildListHtml = (results) => {
-      if (results.length === 0) return '<div style="padding:14px;color:#888;font-size:0.82rem;text-align:center">Sin resultados</div>';
-      return results.map(l => [
-        `<div class="ac-item" data-id="${l.ID_Contacto}"`,
-        `style="padding:10px 14px;cursor:pointer;border-bottom:1px solid #eee;transition:background .15s"`,
-        `onmouseenter="this.style.background='#f0f4ff'" onmouseleave="this.style.background=''">`,
-        `<div style="font-weight:700;font-size:0.88rem;color:#222">${l.Nombre_Persona}</div>`,
-        `<div style="font-size:0.74rem;color:#888">${[l.Nombre_Empresa, l.Telefono, l.Correo_Corp].filter(Boolean).join(' · ')}</div>`,
-        `</div>`
-      ].join('')).join('');
-    };
+    const buildResultItems = (container, label, input, query) => {
+      container.innerHTML = '';
+      selectedId = null;
+      const results = renderSuggestions(query);
 
-    const htmlContent = [
-      '<div style="text-align:left">',
-      '<p style="font-size:0.82rem;color:#666;margin:0 0 10px 0">Busca por nombre, teléfono, correo o empresa.</p>',
-      `<input id="ac-input" type="text" value="${initialQuery.replace(/"/g, '&quot;')}" placeholder="Nombre, teléfono o correo…"`,
-      'style="width:100%;box-sizing:border-box;padding:10px 14px;border:2px solid #ccc;border-radius:8px;font-size:0.9rem;outline:none;font-family:inherit;margin-bottom:6px"',
-      'onfocus="this.style.borderColor=\'#4f46e5\'" onblur="this.style.borderColor=\'#ccc\'"/>',
-      '<div id="ac-results" style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;max-height:260px;overflow-y:auto;background:#fff"></div>',
-      '<p id="ac-selected-label" style="font-size:0.78rem;color:#4f46e5;margin:8px 0 0 0;font-weight:600;min-height:18px"></p>',
-      '</div>'
-    ].join('');
+      if (results.length === 0) {
+        const empty = document.createElement('div');
+        empty.style.cssText = 'padding:14px;color:#888;font-size:0.82rem;text-align:center';
+        empty.textContent = 'Sin resultados';
+        container.appendChild(empty);
+        return;
+      }
 
-    let selectedId = null;
+      results.forEach(l => {
+        const item = document.createElement('div');
+        item.style.cssText = 'padding:10px 14px;cursor:pointer;border-bottom:1px solid #eee;transition:background .15s';
+        item.addEventListener('mouseenter', () => { item.style.background = '#f0f4ff'; });
+        item.addEventListener('mouseleave', () => { item.style.background = ''; });
 
-    const attachListeners = () => {
-      const resultsBox = document.getElementById('ac-results');
-      const label = document.getElementById('ac-selected-label');
-      const input = document.getElementById('ac-input');
-      if (!resultsBox) return;
-      resultsBox.querySelectorAll('.ac-item').forEach(el => {
-        el.addEventListener('click', () => {
-          selectedId = el.dataset.id;
-          const found = knownLeads.find(l => String(l.ID_Contacto) === String(selectedId));
-          if (found) {
-            input.value = found.Nombre_Persona;
-            label.textContent = `✅ Seleccionado: ${found.Nombre_Persona}`;
-            resultsBox.innerHTML = '';
-          }
+        const name = document.createElement('div');
+        name.style.cssText = 'font-weight:700;font-size:0.88rem;color:#222';
+        name.textContent = l.Nombre_Persona;
+
+        const sub = document.createElement('div');
+        sub.style.cssText = 'font-size:0.74rem;color:#888';
+        sub.textContent = [l.Nombre_Empresa, l.Telefono, l.Correo_Corp].filter(Boolean).join(' · ');
+
+        item.appendChild(name);
+        item.appendChild(sub);
+
+        item.addEventListener('click', () => {
+          selectedId = String(l.ID_Contacto);
+          input.value = l.Nombre_Persona;
+          label.textContent = `✅ Seleccionado: ${l.Nombre_Persona}`;
+          label.style.color = '#4f46e5';
+          container.innerHTML = '';
         });
-      });
-    };
 
-    const refreshResults = (q) => {
-      const resultsBox = document.getElementById('ac-results');
-      if (!resultsBox) return;
-      resultsBox.innerHTML = buildListHtml(renderSuggestions(q));
-      attachListeners();
+        container.appendChild(item);
+      });
     };
 
     const result = await Swal.fire({
       title: '🔗 Vincular Contacto',
-      html: htmlContent,
+      html: `
+        <div style="text-align:left">
+          <p style="font-size:0.82rem;color:#666;margin:0 0 10px 0">Busca por nombre, teléfono, correo o empresa.</p>
+          <input id="ac-input" type="text" placeholder="Nombre, teléfono o correo…"
+            style="width:100%;box-sizing:border-box;padding:10px 14px;border:2px solid #ccc;border-radius:8px;font-size:0.9rem;outline:none;font-family:inherit;margin-bottom:6px" />
+          <div id="ac-results" style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;max-height:260px;overflow-y:auto;background:#fff"></div>
+          <p id="ac-selected-label" style="font-size:0.78rem;color:#4f46e5;margin:8px 0 0 0;font-weight:600;min-height:18px"></p>
+        </div>
+      `,
       showCancelButton: true,
       confirmButtonText: 'Vincular',
       cancelButtonText: 'Cancelar',
@@ -234,13 +241,21 @@ export default function Drawer({ open, onClose, lead, leads, setLeads, tab, setT
       didOpen: () => {
         const input = document.getElementById('ac-input');
         const label = document.getElementById('ac-selected-label');
-        // Show initial suggestions
-        refreshResults(initialQuery);
+        const container = document.getElementById('ac-results');
+
+        if (!input || !container || !label) return;
+
+        // Pre-fill and show initial results
+        input.value = initialQuery;
+        input.style.borderColor = '#4f46e5';
+        buildResultItems(container, label, input, initialQuery);
+
+        input.addEventListener('focus', () => { input.style.borderColor = '#4f46e5'; });
+        input.addEventListener('blur', () => { input.style.borderColor = '#ccc'; });
         input.addEventListener('input', (e) => {
-          selectedId = null;
-          if (label) label.textContent = '';
-          refreshResults(e.target.value);
+          buildResultItems(container, label, input, e.target.value);
         });
+
         input.focus();
         input.select();
       },
@@ -253,12 +268,13 @@ export default function Drawer({ open, onClose, lead, leads, setLeads, tab, setT
       }
     });
 
-    if (result.isConfirmed && result.value) {
+     if (result.isConfirmed && result.value) {
        const targetLead = leads.find(l => String(l.ID_Contacto) === String(result.value));
        if (targetLead) {
           const backupLid = targetLead.LID;
-          const updatedLead = { ...targetLead, LID: lead.Telefono };
-          updatedLead.Notas = (updatedLead.Notas || '') + `\n[Sistema] Contacto vinculado con LID: ${lead.Telefono}${backupLid ? ` (LID anterior: ${backupLid})` : ''}`;
+          const newLid = lead.LID || lead.Telefono;
+          const updatedLead = { ...targetLead, LID: newLid };
+          updatedLead.Notas = (updatedLead.Notas || '') + `\n[Sistema] Contacto vinculado con LID: ${newLid}${backupLid ? ` (LID anterior: ${backupLid})` : ''}`;
 
           setLoading(true);
           try {
@@ -267,7 +283,7 @@ export default function Drawer({ open, onClose, lead, leads, setLeads, tab, setT
                 await fetch('/api/whatsapp', {
                    method: 'POST',
                    headers: { 'Content-Type': 'application/json' },
-                   body: JSON.stringify({ action: 'merge_chats', from_phone: backupLid, to_phone: lead.Telefono })
+                   body: JSON.stringify({ action: 'merge_chats', from_phone: backupLid, to_phone: newLid })
                 }).catch(() => {});
              }
              await refreshLeads();

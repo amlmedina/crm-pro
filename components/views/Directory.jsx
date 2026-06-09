@@ -374,9 +374,13 @@ export default function Directory({
 
                   if (c.key === 'Estado_Funnel') return <td key={c.key}>{getBadge(val)}</td>;
                   if (c.key === 'Nombre_Persona') {
-                    const phoneSuffix = String(l.Telefono || '').replace(/[\s\-\+\(\)]/g, '').slice(-10);
+                    const phoneSuffix = cleanPhoneStr(l.Telefono).slice(-10);
                     const lidId = l.LID;
-                    const u = (unreads[phoneSuffix] || 0) + (unreads[lidId] || 0);
+                    const unreadKey = Object.keys(unreads || {}).find(k => 
+                      (lidId && k === lidId) || 
+                      (phoneSuffix && phoneSuffix.length >= 10 && k.includes(phoneSuffix))
+                    );
+                    const u = unreadKey ? unreads[unreadKey] : 0;
                     
                     return (
                       <td key={c.key}>

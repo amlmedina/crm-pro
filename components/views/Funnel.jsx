@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { api } from '@/lib/api';
 import Swal from 'sweetalert2';
 
@@ -11,6 +11,17 @@ export default function Funnel({ leads, cfg, user, openDrawer, openDrawerInQueue
   const [activeFilters, setActiveFilters] = useState([]);
   const [selectedValues, setSelectedValues] = useState([]); // array, not Set — avoids React stale closure issues
   const [agentFilter, setAgentFilter] = useState('todos');
+  const [onlyUnreads, setOnlyUnreads] = useState(false);
+
+  const getLeadUnreads = useCallback((l, unreadsObj) => {
+    if (!unreadsObj) return 0;
+    const phoneSuffix = String(l.Telefono || '').replace(/[\s\-\+\(\)]/g, '').slice(-10);
+    const unreadKey = Object.keys(unreadsObj).find(k => 
+      (l.LID && k === l.LID) || 
+      (phoneSuffix && phoneSuffix.length >= 10 && k.includes(phoneSuffix))
+    );
+    return unreadKey ? unreadsObj[unreadKey] : 0;
+  }, []);
 
   const cardFields = cfg.funnelCardFields || ['Telefono', 'Nombre_Empresa'];
   const defaultLabels = { Telefono: 'Teléfono', Correo_Corp: 'Correo', Nombre_Persona: 'Nombre', Nombre_Empresa: 'Empresa', Cumpleanos: 'Cumpleaños', LID: 'LID (WhatsApp ID)' };
@@ -148,6 +159,8 @@ export default function Funnel({ leads, cfg, user, openDrawer, openDrawerInQueue
 
   // Filtering: agents only see their own leads; managers can filter by agent
   const filteredLeads = leads.filter(l => {
+    if (onlyUnreads && getLeadUnreads(l, unreads) === 0) return false;
+
     let matchSearch = true;
 
     // Group active filters by field
@@ -376,6 +389,20 @@ export default function Funnel({ leads, cfg, user, openDrawer, openDrawerInQueue
 
         {/* Summary badge & Refresh */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <button
+            onClick={() => setOnlyUnreads(!onlyUnreads)}
+            style={{
+              padding: '6px 12px', fontSize: '0.8rem', borderRadius: '20px',
+              background: onlyUnreads ? 'var(--accent)' : 'var(--s2)',
+              color: onlyUnreads ? '#fff' : 'var(--text)',
+              border: `1px solid ${onlyUnreads ? 'var(--accent)' : 'var(--brd)'}`,
+              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px',
+              transition: 'all 0.2s', fontWeight: onlyUnreads ? 600 : 400
+            }}
+            title="Filtrar por mensajes no leídos"
+          >
+            💬 No leídos
+          </button>
           <div style={{ fontSize: '0.78rem', color: 'var(--muted)', padding: '6px 12px', background: 'var(--s2)', borderRadius: '20px', border: '1px solid var(--brd)', whiteSpace: 'nowrap' }}>
             {filteredLeads.length} contactos · <strong style={{ color: 'var(--text)' }}>{activeLabel}</strong>
           </div>
@@ -509,8 +536,7 @@ export default function Funnel({ leads, cfg, user, openDrawer, openDrawerInQueue
               </div>
               <div className="kcards">
                 {colLeads.map(l => {
-                  const phoneSuffix = String(l.Telefono || '').replace(/[\s\-\+\(\)]/g, '').slice(-10);
-                  const u = (unreads[phoneSuffix] || 0) + (unreads[l.LID] || 0);
+                  const u = getLeadUnreads(l, unreads);
                   return (
                     <div
                       className="kcard"
