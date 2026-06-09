@@ -514,12 +514,40 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
           <h3 style={{margin:0}}>Etapas del Funnel</h3>
           <button className="btn btnda" onClick={addStage}>+ Etapa</button>
         </div>
-        <div style={{display:'grid', gridTemplateColumns:'2fr 1.2fr 38px', gap:'10px', marginBottom:'8px'}}>
+        <div style={{display:'grid', gridTemplateColumns:'28px 2fr 1.2fr 38px', gap:'10px', marginBottom:'8px'}}>
+          <div></div>
           <label style={{fontSize:'.67rem', color:'var(--muted)', fontWeight:700}}>Etapa (Nombre)</label>
           <label style={{fontSize:'.67rem', color:'var(--muted)', fontWeight:700}}>Tipo de Etapa</label>
         </div>
         {funnel.map((f, i) => (
-          <div className="strow" key={i} style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr 38px', gap: '10px', marginBottom: '6px' }}>
+          <div className="strow" key={i} style={{ display: 'grid', gridTemplateColumns: '28px 2fr 1.2fr 38px', gap: '10px', marginBottom: '6px', alignItems: 'center' }}>
+            {/* Reorder handle */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+              <button
+                onClick={() => {
+                  if (i > 0) {
+                    const next = [...funnel];
+                    [next[i], next[i-1]] = [next[i-1], next[i]];
+                    setFunnel(next);
+                  }
+                }}
+                disabled={i === 0}
+                title="Subir"
+                style={{ padding: '1px 5px', fontSize: '0.6rem', lineHeight: 1, border: '1px solid var(--brd)', borderRadius: '3px', background: 'var(--s1)', color: 'var(--text)', cursor: i === 0 ? 'not-allowed' : 'pointer', opacity: i === 0 ? 0.3 : 1 }}
+              >▲</button>
+              <button
+                onClick={() => {
+                  if (i < funnel.length - 1) {
+                    const next = [...funnel];
+                    [next[i], next[i+1]] = [next[i+1], next[i]];
+                    setFunnel(next);
+                  }
+                }}
+                disabled={i === funnel.length - 1}
+                title="Bajar"
+                style={{ padding: '1px 5px', fontSize: '0.6rem', lineHeight: 1, border: '1px solid var(--brd)', borderRadius: '3px', background: 'var(--s1)', color: 'var(--text)', cursor: i === funnel.length - 1 ? 'not-allowed' : 'pointer', opacity: i === funnel.length - 1 ? 0.3 : 1 }}
+              >▼</button>
+            </div>
             <input type="text" style={{width: '100%'}} value={f.stage} onChange={e => updateStage(i, 'stage', e.target.value)} />
             <select 
               value={f.type || 'activa'} 
