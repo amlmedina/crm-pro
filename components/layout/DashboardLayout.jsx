@@ -50,7 +50,7 @@ export default function DashboardLayout({ user }) {
 
   function openDrawer(lead = null, tab = 'perfil') {
     setDrawerLead(lead);
-    setDrawerTab(tab);
+    setDrawerTab(lead?.isUnknown ? 'wa' : tab);
     setDrawerQueue([]);
     setDrawerQueueIdx(-1);
     setDrawerQueueStageName('');

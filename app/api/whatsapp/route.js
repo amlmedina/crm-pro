@@ -24,8 +24,6 @@ function getStatus() {
 }
 
 function getMessages() {
-    // Intentar memoria primero, luego disco (Source of Truth)
-    if (global.waMessages && Object.keys(global.waMessages).length > 0) return global.waMessages;
     try {
         if (fs.existsSync(MESSAGES_FILE)) {
             const data = JSON.parse(fs.readFileSync(MESSAGES_FILE, 'utf-8'));
@@ -39,7 +37,6 @@ function getMessages() {
 }
 
 function getUnreads() {
-    if (global.waUnreads && Object.keys(global.waUnreads).length > 0) return global.waUnreads;
     try {
         if (fs.existsSync(UNREADS_FILE)) {
             const data = JSON.parse(fs.readFileSync(UNREADS_FILE, 'utf-8'));
