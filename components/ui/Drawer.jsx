@@ -46,7 +46,13 @@ export default function Drawer({ open, onClose, lead, leads, setLeads, tab, setT
   const [waMsg, setWaMsg]             = useState('');
   const [waSending, setWaSending]     = useState(false);
   const [waError, setWaError]         = useState('');
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
   const waChatRef = useRef(null);
+  const mediaInputRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const recordingIntervalRef = useRef(null);
 
   async function loadWaHistory(phone, lid) {
     if (!phone && !lid) return;
@@ -409,8 +415,13 @@ export default function Drawer({ open, onClose, lead, leads, setLeads, tab, setT
     return text.replace(/\{(\w+)\}/g, (_, key) => (allData[key] !== undefined && allData[key] !== '') ? allData[key] : `{${key}}`);
   }
 
-  // Send image + caption via WhatsApp
+  // Send image + caption via WhatsApp (Legacy)
   async function sendWaImage(imageBase64, captionText) {
+    return sendWaMedia(imageBase64, captionText, false);
+  }
+
+  // Send generic media via WhatsApp
+  async function sendWaMedia(mediaBase64, captionText, isVoiceNote = false) {
     const target = lead?.LID || lead?.Telefono;
     if (!target) return;
     setWaSending(true);
@@ -419,23 +430,86 @@ export default function Drawer({ open, onClose, lead, leads, setLeads, tab, setT
       const res = await fetch('/api/whatsapp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'send_image', to: target, imageBase64, caption: captionText })
+        body: JSON.stringify({ action: 'send_media', to: target, mediaBase64, caption: captionText, isVoiceNote })
       });
       const data = await res.json();
       if (!res.ok) {
-        setWaError(data.error || 'No se pudo enviar la imagen');
+        setWaError(data.error || 'No se pudo enviar el archivo');
       } else {
+        let logText = isVoiceNote ? '[Nota de Voz]' : captionText ? `[Archivo] ${captionText}` : '[Archivo]';
         setWaMessages(prev => [...prev, {
           id: Date.now(), to: target,
-          message: captionText ? `[Imagen] ${captionText}` : '[Imagen]',
+          message: logText,
           createdAt: new Date().toISOString(), status: 'sent', fromMe: true
         }]);
       }
     } catch {
-      setWaError('Error de conexión al enviar imagen');
+      setWaError('Error de conexión al enviar archivo');
     }
     setWaSending(false);
   }
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorderRef.current = new MediaRecorder(stream);
+      audioChunksRef.current = [];
+
+      mediaRecorderRef.current.ondataavailable = e => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+
+      mediaRecorderRef.current.onstop = () => {
+        const type = mediaRecorderRef.current.mimeType || '';
+        const audioBlob = new Blob(audioChunksRef.current, { type });
+        const reader = new FileReader();
+        reader.readAsDataURL(audioBlob);
+        reader.onloadend = () => {
+          const base64String = reader.result;
+          sendWaMedia(base64String, '', true);
+        };
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      mediaRecorderRef.current.start();
+      setIsRecording(true);
+      setRecordingTime(0);
+      recordingIntervalRef.current = setInterval(() => setRecordingTime(prev => prev + 1), 1000);
+    } catch (err) {
+      console.error(err);
+      Swal.fire('Error', 'No se pudo acceder al micrófono. Verifica los permisos.', 'error');
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      clearInterval(recordingIntervalRef.current);
+    }
+  };
+
+  const cancelRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.onstop = null;
+      mediaRecorderRef.current.stop();
+      mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+      setIsRecording(false);
+      clearInterval(recordingIntervalRef.current);
+    }
+  };
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onloadend = () => {
+      sendWaMedia(reader.result, waMsg);
+      setWaMsg('');
+    };
+    e.target.value = '';
+  };
   // ─────────────────────────────────────────────────────────
 
   // Sincronizar data inicial cuando se abre el drawer
@@ -1061,44 +1135,104 @@ export default function Drawer({ open, onClose, lead, leads, setLeads, tab, setT
             </div>
 
             {/* Input area */}
-            <div style={{ padding: '12px', borderTop: '1px solid var(--brd)', background: 'var(--s2)', display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
-              <textarea
-                value={waMsg}
-                onChange={e => setWaMsg(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendWaMessage(); } }}
-                placeholder={`Mensaje para ${lead?.Nombre_Persona || 'contacto'}…`}
-                rows={1}
-                style={{
-                  flex: 1,
-                  resize: 'none',
-                  background: '#ffffff',
-                  border: '1px solid var(--brd)',
-                  borderRadius: '20px',
-                  padding: '10px 16px',
-                  color: '#000000',
-                  fontSize: '0.85rem',
-                  outline: 'none',
-                  lineHeight: '1.4',
-                  maxHeight: '100px',
-                  overflowY: 'auto',
-                  fontFamily: 'inherit'
-                }}
+            <div style={{ padding: '12px', borderTop: '1px solid var(--brd)', background: 'var(--s2)', display: 'flex', gap: '8px', alignItems: 'flex-end', position: 'relative' }}>
+              <input 
+                type="file" 
+                ref={mediaInputRef} 
+                hidden 
+                accept="image/*,video/*,audio/*"
+                onChange={handleFileUpload}
               />
-              <button
-                onClick={sendWaMessage}
-                disabled={waSending || !waMsg.trim()}
-                style={{
-                  width: 42, height: 42, borderRadius: '50%', flexShrink: 0,
-                  background: waSending || !waMsg.trim() ? 'var(--brd)' : '#25d366',
-                  border: 'none', cursor: waSending || !waMsg.trim() ? 'not-allowed' : 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '1.1rem', transition: 'background .2s'
-                }}
-                title="Enviar (Enter)"
-              >
-                {waSending ? '⏳' : '➤'}
-              </button>
+              {!isRecording ? (
+                <button
+                  onClick={() => mediaInputRef.current?.click()}
+                  style={{
+                    width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
+                    background: 'var(--s1)', border: '1px solid var(--brd)', 
+                    cursor: 'pointer', display: 'flex', alignItems: 'center', 
+                    justifyContent: 'center', fontSize: '1.1rem'
+                  }}
+                  title="Adjuntar archivo (Imagen, Video, Audio)"
+                >
+                  📎
+                </button>
+              ) : (
+                <button
+                  onClick={cancelRecording}
+                  style={{
+                    width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
+                    background: '#fee2e2', border: '1px solid #fca5a5', color: '#ef4444',
+                    cursor: 'pointer', display: 'flex', alignItems: 'center', 
+                    justifyContent: 'center', fontSize: '1.1rem'
+                  }}
+                  title="Cancelar grabación"
+                >
+                  🗑️
+                </button>
+              )}
+              
+              {isRecording ? (
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '10px', background: '#fee2e2', padding: '10px 16px', borderRadius: '20px', color: '#ef4444', fontWeight: 'bold' }}>
+                  <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#ef4444', animation: 'pulse 1s infinite' }} />
+                  Grabando nota de voz... {Math.floor(recordingTime / 60)}:{(recordingTime % 60).toString().padStart(2, '0')}
+                </div>
+              ) : (
+                <textarea
+                  value={waMsg}
+                  onChange={e => setWaMsg(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendWaMessage(); } }}
+                  placeholder={`Mensaje para ${lead?.Nombre_Persona || 'contacto'}…`}
+                  rows={1}
+                  style={{
+                    flex: 1,
+                    resize: 'none',
+                    background: '#ffffff',
+                    border: '1px solid var(--brd)',
+                    borderRadius: '20px',
+                    padding: '10px 16px',
+                    color: '#000000',
+                    fontSize: '0.85rem',
+                    outline: 'none',
+                    lineHeight: '1.4',
+                    maxHeight: '100px',
+                    overflowY: 'auto',
+                    fontFamily: 'inherit'
+                  }}
+                />
+              )}
+
+              {!isRecording && !waMsg.trim() ? (
+                <button
+                  onClick={startRecording}
+                  style={{
+                    width: 42, height: 42, borderRadius: '50%', flexShrink: 0,
+                    background: '#25d366',
+                    border: 'none', cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '1.1rem', color: 'white'
+                  }}
+                  title="Grabar Nota de Voz"
+                >
+                  🎙️
+                </button>
+              ) : (
+                <button
+                  onClick={isRecording ? stopRecording : sendWaMessage}
+                  disabled={waSending || (!isRecording && !waMsg.trim())}
+                  style={{
+                    width: 42, height: 42, borderRadius: '50%', flexShrink: 0,
+                    background: waSending || (!isRecording && !waMsg.trim()) ? 'var(--brd)' : '#25d366',
+                    border: 'none', cursor: waSending || (!isRecording && !waMsg.trim()) ? 'not-allowed' : 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '1.1rem', transition: 'background .2s'
+                  }}
+                  title={isRecording ? "Enviar Nota de Voz" : "Enviar (Enter)"}
+                >
+                  {waSending ? '⏳' : '➤'}
+                </button>
+              )}
             </div>
+            <style>{`@keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }`}</style>
           </div>
 
         </div>

@@ -25,6 +25,7 @@ ENV NODE_ENV=production
 # Railway inyecta PORT automáticamente — no forzar un puerto aquí
 
 # Create necessary directories for persistence
+RUN apk add --no-cache ffmpeg
 RUN mkdir -p /app/storage/wa_session /app/storage/crm_data && chown -R node:node /app/storage
 
 COPY --from=builder /app/public ./public

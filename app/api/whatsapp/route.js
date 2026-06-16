@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
+import { execSync } from 'child_process';
 
 /**
  * /api/whatsapp — Proxy interno hacia el singleton de Baileys
@@ -17,6 +19,21 @@ const UNREADS_FILE = path.join(SESSION_DIR, 'unreads.json');
 
 function getSocket() {
     return global.waSocket || null;
+}
+
+// ── Convierte cualquier audio a ogg/opus compatible con WhatsApp PTT ──────────
+function convertToOggOpus(inputBuffer) {
+    const tmpIn  = path.join(os.tmpdir(), `wa_audio_in_${Date.now()}`);
+    const tmpOut = path.join(os.tmpdir(), `wa_audio_out_${Date.now()}.ogg`);
+    try {
+        fs.writeFileSync(tmpIn, inputBuffer);
+        execSync(`ffmpeg -y -i "${tmpIn}" -c:a libopus -b:a 64k -ar 16000 -ac 1 "${tmpOut}" 2>/dev/null`);
+        const outBuffer = fs.readFileSync(tmpOut);
+        return outBuffer;
+    } finally {
+        try { fs.unlinkSync(tmpIn);  } catch {}
+        try { fs.unlinkSync(tmpOut); } catch {}
+    }
 }
 
 function getStatus() {
@@ -87,7 +104,7 @@ export async function POST(req) {
     }
 
     try {
-        const { action, to, message, from_phone, to_phone, imageBase64, caption } = await req.json();
+        const { action, to, message, from_phone, to_phone, imageBase64, caption, mediaBase64, isVoiceNote } = await req.json();
 
         if (!action) {
             return NextResponse.json({ error: 'Parámetros insuficientes' }, { status: 400 });
@@ -151,35 +168,63 @@ export async function POST(req) {
         }
 
 
-        // ── SEND IMAGE ──────────────────────────────────────────────
-        if (action === 'send_image') {
+        // ── SEND MEDIA ──────────────────────────────────────────────
+        if (action === 'send_image' || action === 'send_media') {
             const sock = getSocket();
             const phone = cleanPhone(to || '');
+            const base64Data = mediaBase64 || imageBase64;
 
             if (!phone) return NextResponse.json({ error: 'Número requerido' }, { status: 400 });
-            if (!imageBase64) return NextResponse.json({ error: 'Imagen requerida (base64)' }, { status: 400 });
+            if (!base64Data) return NextResponse.json({ error: 'Media requerida (base64)' }, { status: 400 });
             if (!sock) return NextResponse.json({ error: 'WhatsApp no conectado.' }, { status: 503 });
             if (!getStatus().connected) return NextResponse.json({ error: 'WhatsApp desconectado.' }, { status: 503 });
 
             // Convert base64 data URI to Buffer
-            const matches = imageBase64.match(/^data:(.+);base64,(.+)$/);
-            if (!matches) return NextResponse.json({ error: 'Formato de imagen inválido' }, { status: 400 });
-            const mimeType = matches[1];
+            const matches = base64Data.match(/^data:(.+);base64,(.+)$/);
+            if (!matches) return NextResponse.json({ error: 'Formato de archivo inválido' }, { status: 400 });
+            const rawMimeType = matches[1];
+            const mimeType = rawMimeType.split(';')[0]; // Strip codecs like audio/webm;codecs=opus
             const imgBuffer = Buffer.from(matches[2], 'base64');
 
             const jid = toJid(phone);
-            await sock.sendMessage(jid, {
-                image: imgBuffer,
-                mimetype: mimeType,
-                caption: caption?.trim() || ''
-            });
+            
+            let msgOptions = {};
+            let logText = '[Archivo]';
+
+            if (isVoiceNote) {
+                console.log('[/api/whatsapp] Convirtiendo audio a ogg/opus para PTT...');
+                let oggBuffer;
+                try {
+                    oggBuffer = convertToOggOpus(imgBuffer);
+                    console.log('[/api/whatsapp] Conversión OK, tamaño:', oggBuffer.length);
+                } catch (convErr) {
+                    console.error('[/api/whatsapp] Error al convertir audio con ffmpeg:', convErr.message);
+                    return NextResponse.json({ error: 'Error al procesar el audio. ¿Tienes ffmpeg instalado?' }, { status: 500 });
+                }
+                msgOptions = { audio: oggBuffer, mimetype: 'audio/ogg; codecs=opus', ptt: true };
+                logText = '[Nota de Voz]';
+            } else if (mimeType.startsWith('image/')) {
+                msgOptions = { image: imgBuffer, mimetype: mimeType, caption: caption?.trim() || '' };
+                logText = caption?.trim() ? `[Imagen] ${caption.trim()}` : '[Imagen]';
+            } else if (mimeType.startsWith('video/')) {
+                msgOptions = { video: imgBuffer, mimetype: mimeType, caption: caption?.trim() || '' };
+                logText = caption?.trim() ? `[Video] ${caption.trim()}` : '[Video]';
+            } else if (mimeType.startsWith('audio/')) {
+                msgOptions = { audio: imgBuffer, mimetype: mimeType };
+                logText = '[Audio]';
+            } else {
+                msgOptions = { document: imgBuffer, mimetype: mimeType || 'application/octet-stream', fileName: caption || 'archivo' };
+                logText = '[Documento]';
+            }
+
+            await sock.sendMessage(jid, msgOptions);
 
             const msgs = getMessages();
             if (!msgs[phone]) msgs[phone] = [];
             msgs[phone].push({
-                id: `sent_img_${Date.now()}`,
+                id: `sent_media_${Date.now()}`,
                 from: phone,
-                text: caption?.trim() ? `[Imagen] ${caption.trim()}` : '[Imagen]',
+                text: logText,
                 fromMe: true,
                 timestamp: Date.now(),
             });
