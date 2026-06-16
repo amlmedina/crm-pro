@@ -48,11 +48,20 @@ export default function Drawer({ open, onClose, lead, leads, setLeads, tab, setT
   const [waError, setWaError]         = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
+  const [cameraOpen, setCameraOpen]     = useState(false);
+  const [cameraMode, setCameraMode]     = useState('photo'); // 'photo' | 'video'
+  const [camRecording, setCamRecording] = useState(false);
+  const [camRecordTime, setCamRecordTime] = useState(0);
   const waChatRef = useRef(null);
   const mediaInputRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const recordingIntervalRef = useRef(null);
+  const cameraVideoRef = useRef(null);
+  const cameraStreamRef = useRef(null);
+  const camRecorderRef = useRef(null);
+  const camChunksRef = useRef([]);
+  const camTimerRef = useRef(null);
 
   async function loadWaHistory(phone, lid) {
     if (!phone && !lid) return;
@@ -510,9 +519,75 @@ export default function Drawer({ open, onClose, lead, leads, setLeads, tab, setT
     };
     e.target.value = '';
   };
-  // ─────────────────────────────────────────────────────────
+  const openCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: true });
+      cameraStreamRef.current = stream;
+      setCameraOpen(true);
+      setCamRecording(false);
+      setCamRecordTime(0);
+      // attach stream after mount
+      setTimeout(() => {
+        if (cameraVideoRef.current) {
+          cameraVideoRef.current.srcObject = stream;
+          cameraVideoRef.current.play();
+        }
+      }, 100);
+    } catch {
+      Swal.fire('Error', 'No se pudo acceder a la cámara. Verifica los permisos.', 'error');
+    }
+  };
 
-  // Sincronizar data inicial cuando se abre el drawer
+  const closeCamera = () => {
+    if (cameraStreamRef.current) {
+      cameraStreamRef.current.getTracks().forEach(t => t.stop());
+      cameraStreamRef.current = null;
+    }
+    if (camTimerRef.current) clearInterval(camTimerRef.current);
+    setCameraOpen(false);
+    setCamRecording(false);
+    setCamRecordTime(0);
+  };
+
+  const capturePhoto = () => {
+    const video = cameraVideoRef.current;
+    if (!video) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    const base64 = canvas.toDataURL('image/jpeg', 0.9);
+    closeCamera();
+    sendWaMedia(base64, '', false);
+  };
+
+  const startVideoCapture = () => {
+    const stream = cameraStreamRef.current;
+    if (!stream) return;
+    camChunksRef.current = [];
+    const recorder = new MediaRecorder(stream);
+    camRecorderRef.current = recorder;
+    recorder.ondataavailable = e => { if (e.data.size > 0) camChunksRef.current.push(e.data); };
+    recorder.onstop = () => {
+      const blob = new Blob(camChunksRef.current, { type: recorder.mimeType || 'video/webm' });
+      const reader = new FileReader();
+      reader.readAsDataURL(blob);
+      reader.onloadend = () => { sendWaMedia(reader.result, '', false); };
+    };
+    recorder.start();
+    setCamRecording(true);
+    setCamRecordTime(0);
+    camTimerRef.current = setInterval(() => setCamRecordTime(p => p + 1), 1000);
+  };
+
+  const stopVideoCapture = () => {
+    if (camRecorderRef.current) camRecorderRef.current.stop();
+    if (camTimerRef.current) clearInterval(camTimerRef.current);
+    setCamRecording(false);
+    closeCamera();
+  };
+
+
   useEffect(() => {
     if (open) {
       if (lead) {
@@ -1144,18 +1219,32 @@ export default function Drawer({ open, onClose, lead, leads, setLeads, tab, setT
                 onChange={handleFileUpload}
               />
               {!isRecording ? (
-                <button
-                  onClick={() => mediaInputRef.current?.click()}
-                  style={{
-                    width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
-                    background: 'var(--s1)', border: '1px solid var(--brd)', 
-                    cursor: 'pointer', display: 'flex', alignItems: 'center', 
-                    justifyContent: 'center', fontSize: '1.1rem'
-                  }}
-                  title="Adjuntar archivo (Imagen, Video, Audio)"
-                >
-                  📎
-                </button>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button
+                    onClick={() => mediaInputRef.current?.click()}
+                    style={{
+                      width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
+                      background: 'var(--s1)', border: '1px solid var(--brd)', 
+                      cursor: 'pointer', display: 'flex', alignItems: 'center', 
+                      justifyContent: 'center', fontSize: '1.1rem'
+                    }}
+                    title="Adjuntar archivo (Imagen, Video, Audio)"
+                  >
+                    📎
+                  </button>
+                  <button
+                    onClick={openCamera}
+                    style={{
+                      width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
+                      background: 'var(--s1)', border: '1px solid var(--brd)', 
+                      cursor: 'pointer', display: 'flex', alignItems: 'center', 
+                      justifyContent: 'center', fontSize: '1.1rem'
+                    }}
+                    title="Abrir cámara (Foto / Video)"
+                  >
+                    📷
+                  </button>
+                </div>
               ) : (
                 <button
                   onClick={cancelRecording}
@@ -1232,7 +1321,96 @@ export default function Drawer({ open, onClose, lead, leads, setLeads, tab, setT
                 </button>
               )}
             </div>
-            <style>{`@keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }`}</style>
+            <style>{`
+              @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+              @keyframes camPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,.6); } 70% { box-shadow: 0 0 0 8px rgba(239,68,68,0); } }
+            `}</style>
+
+            {/* ── Camera Modal ── */}
+            {cameraOpen && (
+              <div style={{
+                position: 'fixed', inset: 0, zIndex: 9999,
+                background: 'rgba(0,0,0,0.95)',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                gap: '16px'
+              }}>
+                {/* Video Preview */}
+                <video
+                  ref={cameraVideoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  style={{ width: '100%', maxWidth: 480, maxHeight: '60vh', borderRadius: 16, objectFit: 'cover', background: '#000' }}
+                />
+
+                {/* Mode Switcher */}
+                {!camRecording && (
+                  <div style={{ display: 'flex', gap: 0, borderRadius: 24, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.2)' }}>
+                    {['photo', 'video'].map(m => (
+                      <button key={m} onClick={() => setCameraMode(m)} style={{
+                        padding: '8px 24px', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: '0.82rem',
+                        background: cameraMode === m ? '#25d366' : 'transparent',
+                        color: cameraMode === m ? '#fff' : 'rgba(255,255,255,0.6)',
+                        transition: 'all .2s'
+                      }}>
+                        {m === 'photo' ? '📷 Foto' : '🎬 Video'}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Recording Timer */}
+                {camRecording && (
+                  <div style={{ color: '#ef4444', fontWeight: 'bold', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#ef4444', animation: 'camPulse 1.2s infinite' }} />
+                    {Math.floor(camRecordTime / 60)}:{(camRecordTime % 60).toString().padStart(2, '0')}
+                  </div>
+                )}
+
+                {/* Controls */}
+                <div style={{ display: 'flex', gap: 24, alignItems: 'center' }}>
+                  {/* Cancel */}
+                  <button onClick={closeCamera} style={{
+                    width: 48, height: 48, borderRadius: '50%',
+                    background: 'rgba(255,255,255,0.15)', border: '2px solid rgba(255,255,255,0.4)',
+                    color: '#fff', fontSize: '1.3rem', cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                  }} title="Cancelar">✕</button>
+
+                  {/* Main capture button */}
+                  {cameraMode === 'photo' ? (
+                    <button onClick={capturePhoto} style={{
+                      width: 72, height: 72, borderRadius: '50%',
+                      background: '#fff', border: '4px solid rgba(255,255,255,0.5)',
+                      cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: '1.8rem', boxShadow: '0 0 0 6px rgba(255,255,255,0.15)'
+                    }} title="Tomar foto">📷</button>
+                  ) : camRecording ? (
+                    <button onClick={stopVideoCapture} style={{
+                      width: 72, height: 72, borderRadius: '50%',
+                      background: '#ef4444', border: '4px solid rgba(255,255,255,0.5)',
+                      cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: '1.5rem', animation: 'camPulse 1.2s infinite'
+                    }} title="Detener y enviar">⏹</button>
+                  ) : (
+                    <button onClick={startVideoCapture} style={{
+                      width: 72, height: 72, borderRadius: '50%',
+                      background: '#ef4444', border: '4px solid rgba(255,255,255,0.5)',
+                      cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: '1.8rem', boxShadow: '0 0 0 6px rgba(239,68,68,0.3)'
+                    }} title="Iniciar grabación">🎬</button>
+                  )}
+
+                  {/* Flip camera placeholder (decorative spacing) */}
+                  <div style={{ width: 48 }} />
+                </div>
+
+                <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem' }}>
+                  {cameraMode === 'photo' ? 'Presiona el botón para tomar una foto' : camRecording ? 'Presiona ⏹ para detener y enviar' : 'Presiona el botón rojo para grabar'}
+                </p>
+              </div>
+            )}
+
           </div>
 
         </div>
