@@ -248,7 +248,7 @@ async function startWhatsApp() {
             let finalMsg = campaign.message;
             Object.keys(contact).forEach(key => {
                 if (key !== 'phone' && contact[key] !== undefined && contact[key] !== null) {
-                    finalMsg = finalMsg.replace(new RegExp(`{${key}}`, 'gi'), contact[key]);
+                    finalMsg = finalMsg.replace(new RegExp(`\\{${key}\\}`, 'gi'), contact[key]);
                 }
             });
 
