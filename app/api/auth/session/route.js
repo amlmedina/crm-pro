@@ -24,9 +24,9 @@ export async function POST(req) {
 
     try {
         const currentUser = JSON.parse(sessionCookie.value);
-        const { telefono } = await req.json();
+        const updates = await req.json();
 
-        const updatedUser = { ...currentUser, telefono };
+        const updatedUser = { ...currentUser, ...updates };
         const response = NextResponse.json({ success: true, user: updatedUser });
         
         response.cookies.set('crm_session_secure', JSON.stringify(updatedUser), {

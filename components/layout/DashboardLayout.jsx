@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { api, logoutApi } from '@/lib/api';
+import { api, logoutApi, loginApi } from '@/lib/api';
 import { useRouter } from 'next/navigation';
 import Admin from '@/components/views/Admin';
 import Directory from '@/components/views/Directory';
@@ -17,15 +17,109 @@ export default function DashboardLayout({ user }) {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState(user);
   const [profilePhone, setProfilePhone] = useState(user?.telefono || '');
+  const [profileCurrentPassword, setProfileCurrentPassword] = useState('');
   const [profilePassword, setProfilePassword] = useState('');
   const [profileConfirmPassword, setProfileConfirmPassword] = useState('');
   const [updatingPhone, setUpdatingPhone] = useState(false);
   const [updatingPassword, setUpdatingPassword] = useState(false);
 
+  function isPasswordSecure(pwd) {
+    if (pwd.length < 8) return false;
+    const hasLetter = /[a-zA-Z]/.test(pwd);
+    const hasNumber = /[0-9]/.test(pwd);
+    const hasSymbol = /[^a-zA-Z0-9]/.test(pwd);
+    return hasLetter && hasNumber && hasSymbol;
+  }
+
   useEffect(() => {
     setCurrentUser(user);
     setProfilePhone(user?.telefono || '');
   }, [user]);
+
+  useEffect(() => {
+    if (currentUser?.needsPasswordChange) {
+      forcePasswordChange();
+    }
+  }, [currentUser]);
+
+  async function forcePasswordChange() {
+    let completed = false;
+    while (!completed) {
+      const { value: formValues } = await Swal.fire({
+        title: '🔑 Cambio de contraseña obligatorio',
+        text: 'Por seguridad, debes cambiar la contraseña genérica de primer ingreso.',
+        icon: 'warning',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        showCancelButton: false,
+        html: `
+          <div style="display:flex; flex-direction:column; gap:10px; text-align:left;">
+            <label style="font-size:0.8rem;font-weight:bold;color:var(--muted)">Contraseña Actual</label>
+            <input id="swal_curr_pass" type="password" class="swal2-input" style="margin:0" placeholder="Aurora123" />
+            <label style="font-size:0.8rem;font-weight:bold;color:var(--muted)">Nueva Contraseña</label>
+            <input id="swal_new_pass" type="password" class="swal2-input" style="margin:0" placeholder="Mínimo 8 caract., letras, números y símbolos" />
+            <label style="font-size:0.8rem;font-weight:bold;color:var(--muted)">Confirmar Nueva Contraseña</label>
+            <input id="swal_conf_pass" type="password" class="swal2-input" style="margin:0" placeholder="Repita la nueva contraseña" />
+          </div>
+        `,
+        preConfirm: () => {
+          return {
+            curr: document.getElementById('swal_curr_pass').value,
+            newP: document.getElementById('swal_new_pass').value,
+            conf: document.getElementById('swal_conf_pass').value
+          };
+        }
+      });
+
+      if (!formValues) continue;
+
+      const { curr, newP, conf } = formValues;
+
+      if (!curr || !newP || !conf) {
+        await Swal.fire('Error', 'Todos los campos son obligatorios', 'error');
+        continue;
+      }
+
+      if (newP !== conf) {
+        await Swal.fire('Error', 'Las nuevas contraseñas no coinciden', 'error');
+        continue;
+      }
+
+      if (!isPasswordSecure(newP)) {
+        await Swal.fire('Contraseña Insegura', 'La nueva contraseña debe tener al menos 8 caracteres e incluir letras, números y símbolos.', 'error');
+        continue;
+      }
+
+      Swal.showLoading();
+      try {
+        const verifyRes = await loginApi(currentUser.correo, curr);
+        if (!verifyRes.success) {
+          await Swal.fire('Error', 'La contraseña actual es incorrecta', 'error');
+          continue;
+        }
+
+        await api('resetPassword', {
+          userId: currentUser.id,
+          newPassword: newP
+        });
+
+        const res = await fetch('/api/auth/session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ needsPasswordChange: false })
+        });
+
+        if (!res.ok) throw new Error('Error al actualizar la sesión');
+
+        setCurrentUser(prev => ({ ...prev, needsPasswordChange: false }));
+        await Swal.fire('✅ Éxito', 'Contraseña actualizada correctamente. ¡Bienvenido!', 'success');
+        completed = true;
+      } catch (err) {
+        console.error(err);
+        await Swal.fire('Error', 'No se pudo cambiar la contraseña. Intente nuevamente.', 'error');
+      }
+    }
+  }
 
   const [activeTab, setActiveTab] = useState('dir'); // 'dir', 'unks', 'funnel', 'tasks', 'campaigns', 'admin', 'perfil'
   const [cfg, setCfg] = useState({});
@@ -81,21 +175,32 @@ export default function DashboardLayout({ user }) {
   }
 
   async function handleUpdatePassword() {
-    if (!profilePassword) {
-      return Swal.fire('Incompleto', 'La contraseña no puede estar vacía', 'warning');
+    if (!profileCurrentPassword) {
+      return Swal.fire('Incompleto', 'Debe ingresar su contraseña actual', 'warning');
     }
-    if (profilePassword.length < 6) {
-      return Swal.fire('Error', 'La contraseña debe tener al menos 6 caracteres', 'warning');
+    if (!profilePassword) {
+      return Swal.fire('Incompleto', 'La nueva contraseña no puede estar vacía', 'warning');
     }
     if (profilePassword !== profileConfirmPassword) {
-      return Swal.fire('Error', 'Las contraseñas no coinciden', 'warning');
+      return Swal.fire('Error', 'Las contraseñas nuevas no coinciden', 'warning');
     }
+    if (!isPasswordSecure(profilePassword)) {
+      return Swal.fire('Contraseña Insegura', 'La nueva contraseña debe tener al menos 8 caracteres e incluir letras, números y símbolos.', 'error');
+    }
+    
     setUpdatingPassword(true);
     try {
+      const verifyRes = await loginApi(currentUser.correo, profileCurrentPassword);
+      if (!verifyRes.success) {
+        return Swal.fire('Error', 'La contraseña actual es incorrecta', 'error');
+      }
+
       await api('resetPassword', {
         userId: currentUser.id,
         newPassword: profilePassword
       });
+
+      setProfileCurrentPassword('');
       setProfilePassword('');
       setProfileConfirmPassword('');
       Swal.fire('✅ Éxito', 'Contraseña actualizada correctamente', 'success');
@@ -492,10 +597,20 @@ export default function DashboardLayout({ user }) {
                   <hr style={{ border: 'none', borderTop: '1px solid var(--brd)' }} />
 
                   <div className="fg">
+                    <label>Contraseña Actual</label>
+                    <input 
+                      type="password" 
+                      placeholder="Ingrese contraseña actual" 
+                      value={profileCurrentPassword} 
+                      onChange={e => setProfileCurrentPassword(e.target.value)} 
+                    />
+                  </div>
+
+                  <div className="fg">
                     <label>Nueva Contraseña</label>
                     <input 
                       type="password" 
-                      placeholder="Mínimo 6 caracteres" 
+                      placeholder="Mínimo 8 caract., letras, números y símbolos" 
                       value={profilePassword} 
                       onChange={e => setProfilePassword(e.target.value)} 
                     />

@@ -203,15 +203,14 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
   }
 
   // User Actions
-  const [uForm, setUform] = useState({ nombre: '', correo: '', telefono: '', rol: 'Agente', password: '' });
+  const [uForm, setUform] = useState({ nombre: '', correo: '', telefono: '', rol: 'Agente' });
   
   async function doCreateUser() {
-    if (!uForm.nombre || !uForm.correo || !uForm.password) return Swal.fire('Incompleto', 'Faltan campos', 'warning');
-    if (uForm.password.length < 6) return Swal.fire('Error', 'Mínimo 6 caracteres en la clave', 'warning');
+    if (!uForm.nombre || !uForm.correo) return Swal.fire('Incompleto', 'Faltan campos (Nombre y Correo)', 'warning');
     try {
-      await api('createUser', uForm);
-      Swal.fire('✅ Creado', 'Usuario generado', 'success');
-      setUform({ nombre: '', correo: '', telefono: '', rol: 'Agente', password: '' });
+      await api('createUser', { ...uForm, password: 'Aurora123' });
+      Swal.fire('✅ Creado', 'Usuario generado con la clave genérica Aurora123', 'success');
+      setUform({ nombre: '', correo: '', telefono: '', rol: 'Agente' });
       loadUsers();
     } catch {
       Swal.fire('Error', 'No se pudo crear', 'error');
@@ -475,7 +474,10 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
               <option value="Gerente">Gerente — Acceso total</option>
             </select>
           </div>
-          <div className="fg"><label>Clave Temporal</label><input type="password" value={uForm.password} onChange={e=>setUform({...uForm, password: e.target.value})} /></div>
+          <div className="fg">
+            <label>Clave Inicial</label>
+            <input type="text" value="Aurora123" disabled style={{ opacity: 0.8, cursor: 'not-allowed' }} />
+          </div>
           <div className="fg" style={{display:'flex', alignItems:'flex-end'}}>
             <button className="btn btng btnw" onClick={doCreateUser}>+ Crear Usuario</button>
           </div>

@@ -45,9 +45,14 @@ export async function POST(req) {
             // Setup secure HttpOnly cookie
             const response = NextResponse.json({ success: true, message: data.message });
             
+            const sessionUser = { ...data.user };
+            if (cleanPass === 'Aurora123') {
+                sessionUser.needsPasswordChange = true;
+            }
+
             // Set session token (in production, we'd sign/encrypt it)
             // Storing minimalist JSON just to have the user object
-            response.cookies.set('crm_session_secure', JSON.stringify(data.user), {
+            response.cookies.set('crm_session_secure', JSON.stringify(sessionUser), {
                 httpOnly: true,
                 secure: process.env.NODE_ENV === 'production',
                 sameSite: 'strict',
