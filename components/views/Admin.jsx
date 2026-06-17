@@ -17,7 +17,7 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
   const [linkSearchFields, setLinkSearchFields] = useState([]);
   const [waPredefs, setWaPredefs] = useState([]);
   const [bdayDefaultMessage, setBdayDefaultMessage] = useState('');
-  const [defaultTheme, setDefaultTheme] = useState('galaxia');
+  const [defaultTheme, setDefaultTheme] = useState('corporativo');
 
   // Users state
   const [users, setUsers] = useState([]);
@@ -49,7 +49,7 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
       setFunnelCardFields(cfg.funnelCardFields || ['Telefono', 'Nombre_Empresa']);
       setLinkSearchFields(cfg.linkSearchFields || ['Nombre_Persona', 'Telefono', 'Correo_Corp', 'Nombre_Empresa']);
       setBdayDefaultMessage(cfg.bdayDefaultMessage || '¡Hola {Nombre_Persona}! 🎉 Hoy es tu día especial. De parte de todo el equipo, te deseamos un feliz cumpleaños. ¡Que lo disfrutes mucho!');
-      setDefaultTheme(cfg.defaultTheme || 'galaxia');
+      setDefaultTheme(cfg.defaultTheme || 'corporativo');
     }
     loadUsers();
     loadWaStatus();

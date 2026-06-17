@@ -11,10 +11,23 @@ import Campaigns from '@/components/views/Campaigns';
 import Reports from '@/components/views/Reports';
 import Drawer from '@/components/ui/Drawer';
 import { THEMES, applyTheme, loadSavedTheme, THEME_STORAGE_KEY } from '@/lib/themes';
+import Swal from 'sweetalert2';
 
 export default function DashboardLayout({ user }) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState('dir'); // 'dir', 'unks', 'funnel', 'tasks', 'campaigns', 'admin'
+  const [currentUser, setCurrentUser] = useState(user);
+  const [profilePhone, setProfilePhone] = useState(user?.telefono || '');
+  const [profilePassword, setProfilePassword] = useState('');
+  const [profileConfirmPassword, setProfileConfirmPassword] = useState('');
+  const [updatingPhone, setUpdatingPhone] = useState(false);
+  const [updatingPassword, setUpdatingPassword] = useState(false);
+
+  useEffect(() => {
+    setCurrentUser(user);
+    setProfilePhone(user?.telefono || '');
+  }, [user]);
+
+  const [activeTab, setActiveTab] = useState('dir'); // 'dir', 'unks', 'funnel', 'tasks', 'campaigns', 'admin', 'perfil'
   const [cfg, setCfg] = useState({});
   const [leads, setLeads] = useState([]);
   const leadsRef = useRef([]);
@@ -26,7 +39,7 @@ export default function DashboardLayout({ user }) {
   const [unreads, setUnreads] = useState({});
   const [threads, setThreads] = useState([]);
   const [selectedForCampaign, setSelectedForCampaign] = useState([]);
-  const [currentTheme, setCurrentTheme] = useState('galaxia');
+  const [currentTheme, setCurrentTheme] = useState('corporativo');
   const [usersMap, setUsersMap] = useState({});
 
   // Load saved theme on mount
@@ -34,6 +47,65 @@ export default function DashboardLayout({ user }) {
     const saved = loadSavedTheme();
     setCurrentTheme(saved);
   }, []);
+
+  async function handleUpdatePhone() {
+    if (!profilePhone.trim()) {
+      return Swal.fire('Incompleto', 'El teléfono no puede estar vacío', 'warning');
+    }
+    setUpdatingPhone(true);
+    try {
+      await api('updateUser', {
+        userId: currentUser.id,
+        nombre: currentUser.nombre,
+        correo: currentUser.correo,
+        rol: currentUser.rol,
+        telefono: profilePhone
+      });
+
+      const res = await fetch('/api/auth/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ telefono: profilePhone })
+      });
+
+      if (!res.ok) throw new Error('Error al actualizar la cookie de sesión');
+
+      setCurrentUser(prev => ({ ...prev, telefono: profilePhone }));
+      Swal.fire('✅ Éxito', 'Teléfono actualizado correctamente', 'success');
+    } catch (err) {
+      console.error(err);
+      Swal.fire('Error', 'No se pudo actualizar el teléfono', 'error');
+    } finally {
+      setUpdatingPhone(false);
+    }
+  }
+
+  async function handleUpdatePassword() {
+    if (!profilePassword) {
+      return Swal.fire('Incompleto', 'La contraseña no puede estar vacía', 'warning');
+    }
+    if (profilePassword.length < 6) {
+      return Swal.fire('Error', 'La contraseña debe tener al menos 6 caracteres', 'warning');
+    }
+    if (profilePassword !== profileConfirmPassword) {
+      return Swal.fire('Error', 'Las contraseñas no coinciden', 'warning');
+    }
+    setUpdatingPassword(true);
+    try {
+      await api('resetPassword', {
+        userId: currentUser.id,
+        newPassword: profilePassword
+      });
+      setProfilePassword('');
+      setProfileConfirmPassword('');
+      Swal.fire('✅ Éxito', 'Contraseña actualizada correctamente', 'success');
+    } catch (err) {
+      console.error(err);
+      Swal.fire('Error', 'No se pudo actualizar la contraseña', 'error');
+    } finally {
+      setUpdatingPassword(false);
+    }
+  }
 
   function changeTheme(themeId) {
     applyTheme(themeId);
@@ -77,7 +149,7 @@ export default function DashboardLayout({ user }) {
 
   // Masking Utility
   const isCensored = (key) => {
-    if (user.rol === 'Administrador' || user.rol === 'Gerente') return false;
+    if (currentUser.rol === 'Administrador' || currentUser.rol === 'Gerente') return false;
     return cfg?.censoredFields?.includes(key);
   };
 
@@ -85,7 +157,7 @@ export default function DashboardLayout({ user }) {
   useEffect(() => {
     if (!enableDlp) return;
 
-    const isManager = user.rol === 'Gerente' || user.rol === 'Administrador';
+    const isManager = currentUser.rol === 'Gerente' || currentUser.rol === 'Administrador';
 
     const disableCopy = (e) => { if (!isManager) e.preventDefault(); };
     const disableKeys = (e) => {
@@ -105,24 +177,24 @@ export default function DashboardLayout({ user }) {
       document.removeEventListener('copy', disableCopy);
       document.removeEventListener('keydown', disableKeys);
     }
-  }, [enableDlp]);
+  }, [enableDlp, currentUser]);
 
   useEffect(() => {
     initApp();
-  }, [user]);
+  }, [currentUser]);
 
   async function initApp(background = false) {
     try {
       if (!background) setLoading(true);
       const [resCfg, resContacts] = await Promise.all([
         api('getConfig'),
-        api('getContacts', { userId: user.id, userRole: user.rol })
+        api('getContacts', { userId: currentUser.id, userRole: currentUser.rol })
       ]);
       setCfg(resCfg);
       if (typeof window !== 'undefined') {
         const hasSavedLocal = localStorage.getItem(THEME_STORAGE_KEY);
         if (!hasSavedLocal) {
-          const platformDefault = resCfg.defaultTheme || 'galaxia';
+          const platformDefault = resCfg.defaultTheme || 'corporativo';
           applyTheme(platformDefault);
           setCurrentTheme(platformDefault);
         }
@@ -138,8 +210,8 @@ export default function DashboardLayout({ user }) {
         const map = {};
 
         // Always seed with the current session user first
-        if (user?.id)     map[String(user.id)]     = user.nombre;
-        if (user?.nombre) map[user.nombre]          = user.nombre;
+        if (currentUser?.id)     map[String(currentUser.id)]     = currentUser.nombre;
+        if (currentUser?.nombre) map[currentUser.nombre]          = currentUser.nombre;
 
         (usersRes || []).forEach(u => {
           const id     = u.ID_Usuario ?? u.id_usuario ?? u.id;
@@ -238,7 +310,7 @@ export default function DashboardLayout({ user }) {
         const updatedLead = { ...lead, LID: lid };
         updatedLead.Notas = (updatedLead.Notas || '') + `\n[Sistema] Vinculado automáticamente por coincidencia de número WhatsApp: ${lid}`;
 
-        await api('saveProfile', { perfil: updatedLead, userId: user.id });
+        await api('saveProfile', { perfil: updatedLead, userId: currentUser.id });
 
         // Update local state to prevent re-processing
         const updater = prev => prev.map(l => l.ID_Contacto === lead.ID_Contacto ? updatedLead : l);
@@ -269,16 +341,17 @@ export default function DashboardLayout({ user }) {
           <button className={`tab ${activeTab === 'funnel' ? 'on' : ''}`} onClick={() => setActiveTab('funnel')}>Funnel SLA</button>
           <button className={`tab ${activeTab === 'tasks' ? 'on' : ''}`} onClick={() => setActiveTab('tasks')}>✅ Tareas</button>
           <button className={`tab ${activeTab === 'campaigns' ? 'on' : ''}`} onClick={() => setActiveTab('campaigns')}>📣 Campañas</button>
-          {user.rol === 'Gerente' && (
+          <button className={`tab ${activeTab === 'perfil' ? 'on' : ''}`} onClick={() => setActiveTab('perfil')}>👤 Mi Perfil</button>
+          {currentUser.rol === 'Gerente' && (
             <>
               <button className={`tab ${activeTab === 'reports' ? 'on' : ''}`} onClick={() => setActiveTab('reports')}>📊 Reportes</button>
               <button className={`tab tadm ${activeTab === 'admin' ? 'on' : ''}`} onClick={() => setActiveTab('admin')}>⚙️ Admin</button>
             </>
           )}
         </div>
-        <div id="nuser">
-          <span style={{ fontWeight: 700, color: 'var(--text)', marginRight: '4px' }}>{user.nombre}</span> · {user.rol}
-          <button onClick={handleLogout} style={{ marginLeft: '12px', padding: '4px 8px', background: 'var(--s2)', border: '1px solid var(--brd)', borderRadius: '4px', color: 'var(--danger)', cursor: 'pointer', fontSize: '0.7rem', fontWeight: 700 }}>
+        <div id="nuser" style={{ cursor: 'pointer' }} onClick={() => setActiveTab('perfil')} title="Ver mi perfil">
+          <span style={{ fontWeight: 700, color: activeTab === 'perfil' ? 'var(--navy)' : 'var(--text)', marginRight: '4px' }}>{currentUser.nombre}</span> · {currentUser.rol}
+          <button onClick={(e) => { e.stopPropagation(); handleLogout(); }} style={{ marginLeft: '12px', padding: '4px 8px', background: 'var(--s2)', border: '1px solid var(--brd)', borderRadius: '4px', color: 'var(--danger)', cursor: 'pointer', fontSize: '0.7rem', fontWeight: 700 }}>
             SALIR
           </button>
         </div>
@@ -287,7 +360,7 @@ export default function DashboardLayout({ user }) {
       {/* Marca de Agua Dinámica / DLP */}
       {enableDlp && (
         <div id="wm" style={{ display: 'block' }}>
-          {(user.correo + '     ').repeat(300)}
+          {(currentUser.correo + '     ').repeat(300)}
         </div>
       )}
 
@@ -304,7 +377,7 @@ export default function DashboardLayout({ user }) {
               cfg={cfg}
               loading={loading}
               refreshLeads={initApp}
-              user={user}
+              user={currentUser}
               openDrawer={openDrawer}
               isCensored={isCensored}
               hideUnknowns={true}
@@ -322,7 +395,7 @@ export default function DashboardLayout({ user }) {
               cfg={cfg}
               loading={loading}
               refreshLeads={initApp}
-              user={user}
+              user={currentUser}
               openDrawer={openDrawer}
               isCensored={isCensored}
               unknownsOnly={true}
@@ -343,7 +416,7 @@ export default function DashboardLayout({ user }) {
               refreshLeads={initApp}
               openDrawer={openDrawer}
               openDrawerInQueue={openDrawerInQueue}
-              user={user}
+              user={currentUser}
               unreads={unreads}
               isCensored={isCensored}
               usersMap={usersMap}
@@ -355,10 +428,10 @@ export default function DashboardLayout({ user }) {
           </div>
 
           <div style={{ display: activeTab === 'campaigns' ? 'flex' : 'none', flex: 1, overflow: 'hidden' }}>
-            <Campaigns leads={leads} cfg={cfg} user={user} openDrawer={openDrawer} isCensored={isCensored} initialSelection={selectedForCampaign} onClearSelection={() => setSelectedForCampaign([])} />
+            <Campaigns leads={leads} cfg={cfg} user={currentUser} openDrawer={openDrawer} isCensored={isCensored} initialSelection={selectedForCampaign} onClearSelection={() => setSelectedForCampaign([])} />
           </div>
 
-          {user.rol === 'Gerente' && (
+          {currentUser.rol === 'Gerente' && (
             <>
               <div style={{ display: activeTab === 'reports' ? 'flex' : 'none', flex: 1, overflowY: 'auto' }}>
                 <Reports leads={leads} cfg={cfg} setCfg={setCfg} />
@@ -368,6 +441,88 @@ export default function DashboardLayout({ user }) {
               </div>
             </>
           )}
+
+          {/* PERFIL VIEW */}
+          <div style={{ display: activeTab === 'perfil' ? 'flex' : 'none', flex: 1, overflowY: 'auto', padding: '30px 40px', justifyContent: 'center' }}>
+            <div style={{ width: '100%', maxWidth: '500px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div className="card" style={{ padding: '30px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--navy)', borderBottom: '1px solid var(--brd)', paddingBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  👤 Mi Perfil
+                </h2>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                  <div>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>Nombre</label>
+                    <div style={{ fontSize: '0.95rem', fontWeight: 600, marginTop: '4px' }}>{currentUser.nombre}</div>
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>Correo Electrónico</label>
+                    <div style={{ fontSize: '0.95rem', fontWeight: 600, marginTop: '4px' }}>{currentUser.correo}</div>
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase' }}>Rol</label>
+                    <div style={{ fontSize: '0.95rem', fontWeight: 600, marginTop: '4px' }}>
+                      <span className="badge bm">{currentUser.rol}</span>
+                    </div>
+                  </div>
+
+                  <hr style={{ border: 'none', borderTop: '1px solid var(--brd)' }} />
+
+                  <div className="fg">
+                    <label>Teléfono</label>
+                    <input 
+                      type="text" 
+                      placeholder="Ej. +521234567890" 
+                      value={profilePhone} 
+                      onChange={e => setProfilePhone(e.target.value)} 
+                    />
+                  </div>
+
+                  <button 
+                    className="btn btng" 
+                    onClick={handleUpdatePhone}
+                    disabled={updatingPhone}
+                    style={{ alignSelf: 'flex-start' }}
+                  >
+                    {updatingPhone ? 'Guardando...' : 'Actualizar Teléfono'}
+                  </button>
+
+                  <hr style={{ border: 'none', borderTop: '1px solid var(--brd)' }} />
+
+                  <div className="fg">
+                    <label>Nueva Contraseña</label>
+                    <input 
+                      type="password" 
+                      placeholder="Mínimo 6 caracteres" 
+                      value={profilePassword} 
+                      onChange={e => setProfilePassword(e.target.value)} 
+                    />
+                  </div>
+
+                  <div className="fg">
+                    <label>Confirmar Contraseña</label>
+                    <input 
+                      type="password" 
+                      placeholder="Repite la contraseña" 
+                      value={profileConfirmPassword} 
+                      onChange={e => setProfileConfirmPassword(e.target.value)} 
+                    />
+                  </div>
+
+                  <button 
+                    className="btn btng" 
+                    onClick={handleUpdatePassword}
+                    disabled={updatingPassword}
+                    style={{ alignSelf: 'flex-start' }}
+                  >
+                    {updatingPassword ? 'Cambiando clave...' : 'Actualizar Contraseña'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </>
       )}
 
@@ -381,7 +536,7 @@ export default function DashboardLayout({ user }) {
         tab={drawerTab}
         setTab={setDrawerTab}
         cfg={cfg}
-        user={user}
+        user={currentUser}
         refreshLeads={initApp}
         isCensored={isCensored}
         drawerQueue={drawerQueue}
