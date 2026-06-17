@@ -1629,16 +1629,37 @@ export default function Drawer({ open, onClose, lead, leads, setLeads, tab, setT
 
               {/* NOTAS VIEW */}
               {showNotepad && !showDripConfig && (
-                <div style={{ flex: 1, padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ flex: 1, padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px', minHeight: 0 }}>
                   <textarea
                     value={notas}
                     onChange={e => setNotas(e.target.value)}
                     placeholder="Notas, acuerdos o resumen de la conversación..."
-                    style={{ flex: 1, resize: 'none', background: 'var(--bg)', border: '1px solid var(--brd)', borderRadius: '8px', padding: '10px', fontSize: '0.82rem', outline: 'none', color: 'var(--text)', fontFamily: 'inherit' }}
+                    style={{ height: '120px', minHeight: '100px', resize: 'vertical', background: 'var(--bg)', border: '1px solid var(--brd)', borderRadius: '8px', padding: '10px', fontSize: '0.82rem', outline: 'none', color: 'var(--text)', fontFamily: 'inherit' }}
                   />
-                  <button onClick={doSaveInt} className="btn btng" disabled={loading} style={{ width: '100%', padding: '9px', fontSize: '0.82rem' }}>
+                  <button onClick={doSaveInt} className="btn btng" disabled={loading} style={{ width: '100%', padding: '9px', fontSize: '0.82rem', flexShrink: 0 }}>
                     {loading ? '⏳ Guardando...' : '💾 Guardar Notas'}
                   </button>
+
+                  <div style={{ marginTop: '12px', borderTop: '1px solid var(--brd)', paddingTop: '12px', flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                    <span style={{ fontSize: '0.73rem', fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>Historial de Notas</span>
+                    <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {loadingHist ? (
+                        <p style={{ color: 'var(--muted)', fontSize: '0.75rem', margin: 0 }}>Cargando notas...</p>
+                      ) : hist.length === 0 ? (
+                        <p style={{ color: 'var(--muted)', fontSize: '0.75rem', margin: 0 }}>Sin notas guardadas.</p>
+                      ) : (
+                        hist.map((h, idx) => (
+                          <div key={idx} style={{ padding: '8px', background: 'var(--s1)', borderRadius: '6px', border: '1px solid var(--brd)', fontSize: '0.75rem' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--muted)', fontSize: '0.68rem', marginBottom: '4px' }}>
+                              <span>{new Date(h.Fecha_Hora).toLocaleDateString()} {new Date(h.Fecha_Hora).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                              <strong style={{ color: 'var(--navy)' }}>{h.Estado_Momento}</strong>
+                            </div>
+                            <div style={{ color: 'var(--text)', whiteSpace: 'pre-wrap', lineHeight: '1.3' }}>{h.Notas}</div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
 

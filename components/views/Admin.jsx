@@ -8,6 +8,7 @@ import { THEMES } from '@/lib/themes';
 export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
   const [adminTab, setAdminTab] = useState('usuarios');
   const [pipelineTab, setPipelineTab] = useState('etapas');
+  const [whatsappTab, setWhatsappTab] = useState('respuestas');
   const [funnel, setFunnel] = useState([]);
   const [campos, setCampos] = useState([]);
   const [enableDlp, setEnableDlp] = useState(true);
@@ -893,7 +894,19 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
       </> /* end pipeline */}
 
       {/* ══ WHATSAPP PREDEFS + BDAY ═══════════════════════════ */}
-      {adminTab === 'whatsapp' && <>
+      {adminTab === 'whatsapp' && (
+        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginBottom: '20px', background: 'var(--s2)', padding: '6px', borderRadius: '10px', border: '1px solid var(--brd)' }}>
+          {[
+            ['respuestas', '💬 Respuestas Rápidas'],
+            ['cumpleanos', '🎂 Cumpleaños'],
+            ['drip', '🤖 Secuencias Drip']
+          ].map(([id, label]) => (
+            <button key={id} onClick={() => setWhatsappTab(id)} style={{ padding: '7px 14px', borderRadius: '7px', border: 'none', cursor: 'pointer', fontWeight: whatsappTab===id?700:500, fontSize: '0.8rem', background: whatsappTab===id?'var(--navy)':'transparent', color: whatsappTab===id?'#fff':'var(--muted)', transition: 'all .15s', flex: '0 0 auto' }}>{label}</button>
+          ))}
+        </div>
+      )}
+
+      {adminTab === 'whatsapp' && whatsappTab === 'respuestas' && <>
 
       <div className="acard">
         <h3>Respuestas Rápidas (WhatsApp)</h3>
@@ -1107,7 +1120,7 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
       </div>
       </> /* end whatsapp predefs */}
 
-      {adminTab === 'whatsapp' && (
+      {adminTab === 'whatsapp' && whatsappTab === 'cumpleanos' && (
       <div className="acard">
         <h3>🎂 Mensaje por Defecto de Cumpleaños</h3>
         <p style={{ fontSize: '0.72rem', color: 'var(--muted)', marginBottom: '10px' }}>Este mensaje se pre-cargará automáticamente al programar una campaña de cumpleaños. Usa variables como <code>{'{Nombre_Persona}'}</code> para personalizar.</p>
@@ -1121,7 +1134,7 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
       </div>
       )} {/* end bday */}
 
-      {adminTab === 'whatsapp' && (
+      {adminTab === 'whatsapp' && whatsappTab === 'drip' && (
       <div className="acard" style={{ borderLeft: '4px solid var(--navy)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
           <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--navy)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>🤖</div>
