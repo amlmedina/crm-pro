@@ -18,16 +18,51 @@ const app    = next({ dev });
 const handle = app.getRequestHandler();
 
 // ── Rutas de almacenamiento (unificado para Railway) ──────────────────────────
-const BASE_STORAGE   = fs.existsSync('/app/storage') ? '/app/storage' : process.cwd();
-const SESSION_DIR    = path.join(BASE_STORAGE, 'wa_session');
-const MESSAGES_FILE  = path.join(SESSION_DIR,  'messages.json');
-const UNREADS_FILE   = path.join(SESSION_DIR,  'unreads.json');
-const TASKS_DATA_DIR = path.join(BASE_STORAGE, 'crm_data');
-const CAMPAIGNS_FILE = path.join(TASKS_DATA_DIR, 'campaigns.json');
+const BASE_STORAGE         = fs.existsSync('/app/storage') ? '/app/storage' : process.cwd();
+const SESSION_DIR          = path.join(BASE_STORAGE, 'wa_session');
+const MEDIA_DIR            = path.join(SESSION_DIR,  'media');
+const MESSAGES_FILE        = path.join(SESSION_DIR,  'messages.json');
+const UNREADS_FILE         = path.join(SESSION_DIR,  'unreads.json');
+const TASKS_DATA_DIR       = path.join(BASE_STORAGE, 'crm_data');
+const CAMPAIGNS_FILE       = path.join(TASKS_DATA_DIR, 'campaigns.json');
+const MEDIA_RETENTION_DAYS = 30; // Tiempo máximo en días para conservar fotos y notas de voz localmente
 
 function ensureDataDirs() {
   if (!fs.existsSync(SESSION_DIR))    fs.mkdirSync(SESSION_DIR,    { recursive: true });
+  if (!fs.existsSync(MEDIA_DIR))      fs.mkdirSync(MEDIA_DIR,      { recursive: true });
   if (!fs.existsSync(TASKS_DATA_DIR)) fs.mkdirSync(TASKS_DATA_DIR, { recursive: true });
+}
+
+function cleanOldMediaFiles() {
+  try {
+    if (!fs.existsSync(MEDIA_DIR)) return;
+    
+    console.log('[System] Iniciando limpieza de archivos multimedia antiguos...');
+    const now = Date.now();
+    const retentionMs = MEDIA_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+    
+    const files = fs.readdirSync(MEDIA_DIR);
+    let deletedCount = 0;
+    
+    for (const file of files) {
+      const filePath = path.join(MEDIA_DIR, file);
+      const stat = fs.statSync(filePath);
+      
+      const ageMs = now - stat.mtimeMs;
+      if (ageMs > retentionMs) {
+        fs.unlinkSync(filePath);
+        deletedCount++;
+      }
+    }
+    
+    if (deletedCount > 0) {
+      console.log(`[System] Limpieza completada: Se eliminaron ${deletedCount} archivos antiguos de media.`);
+    } else {
+      console.log('[System] Limpieza completada: No hay archivos antiguos para eliminar.');
+    }
+  } catch (err) {
+    console.error('[System] Error en limpieza de archivos multimedia:', err.message);
+  }
 }
 
 function loadMessages() {
@@ -66,6 +101,32 @@ global.waMessages = loadMessages();
 global.waUnreads  = loadUnreads();
 global.campaigns  = loadCampaigns();
 
+// ── Funciones auxiliares para archivos multimedia ──────────────────────────────
+function getMediaMessage(message) {
+  if (!message) return null;
+  if (message.ephemeralMessage) return getMediaMessage(message.ephemeralMessage.message);
+  if (message.viewOnceMessage) return getMediaMessage(message.viewOnceMessage.message);
+  if (message.viewOnceMessageV2) return getMediaMessage(message.viewOnceMessageV2.message);
+  if (message.documentWithCaptionMessage) return getMediaMessage(message.documentWithCaptionMessage.message);
+  return message;
+}
+
+function getExtension(mime, defaultExt = '') {
+  if (!mime) return defaultExt;
+  if (mime.includes('image/png')) return '.png';
+  if (mime.includes('image/jpeg') || mime.includes('image/jpg')) return '.jpg';
+  if (mime.includes('video/mp4')) return '.mp4';
+  if (mime.includes('audio/ogg')) return '.ogg';
+  if (mime.includes('audio/mpeg') || mime.includes('audio/mp3')) return '.mp3';
+  if (mime.includes('audio/webm')) return '.webm';
+  const parts = mime.split('/');
+  if (parts.length === 2) {
+    const ext = parts[1].split(';')[0];
+    return `.${ext}`;
+  }
+  return defaultExt;
+}
+
 // ── Motor de WhatsApp ─────────────────────────────────────────────────────────
 async function startWhatsApp() {
   ensureDataDirs();
@@ -79,6 +140,7 @@ async function startWhatsApp() {
     fetchLatestBaileysVersion,
     Browsers,
     jidNormalizedUser,
+    downloadMediaMessage,
   } = await import('@whiskeysockets/baileys');
 
   const { Boom } = await import('@hapi/boom');
@@ -171,20 +233,23 @@ async function startWhatsApp() {
         const numPart       = normalizedJid.split('@')[0];
         const fullNumber    = isLid ? `${numPart}@lid` : numPart;
 
+        const innerMessage = getMediaMessage(msg.message);
+        if (!innerMessage) continue;
+
         const mBody =
-          msg.message?.conversation              ||
-          msg.message?.extendedTextMessage?.text ||
-          msg.message?.imageMessage?.caption     ||
-          msg.message?.videoMessage?.caption     ||
+          innerMessage.conversation              ||
+          innerMessage.extendedTextMessage?.text ||
+          innerMessage.imageMessage?.caption     ||
+          innerMessage.videoMessage?.caption     ||
           null;
 
         let content = mBody;
         if (!content) {
-          if      (msg.message?.imageMessage)    content = '[Imagen 🖼️]';
-          else if (msg.message?.videoMessage)    content = '[Video 📹]';
-          else if (msg.message?.audioMessage)    content = '[Audio 🎙️]';
-          else if (msg.message?.documentMessage) content = '[Documento 📄]';
-          else if (msg.message?.stickerMessage)  content = '[Sticker]';
+          if      (innerMessage.imageMessage)    content = '[Imagen 🖼️]';
+          else if (innerMessage.videoMessage)    content = '[Video 📹]';
+          else if (innerMessage.audioMessage)    content = '[Audio 🎙️]';
+          else if (innerMessage.documentMessage) content = '[Documento 📄]';
+          else if (innerMessage.stickerMessage)  content = '[Sticker]';
           else                                   content = '[Mensaje no soportado]';
         }
 
@@ -197,6 +262,58 @@ async function startWhatsApp() {
           timestamp: ts * 1000,
           pushName:  msg.pushName || ''
         };
+
+        const isMedia = !!(
+          innerMessage.imageMessage ||
+          innerMessage.videoMessage ||
+          innerMessage.audioMessage ||
+          innerMessage.documentMessage
+        );
+
+        if (isMedia) {
+          try {
+            console.log(`[WA] Descargando media para mensaje ${entry.id}...`);
+            const buffer = await downloadMediaMessage(
+              msg,
+              'buffer',
+              {},
+              {
+                logger: console,
+                reuploadRequest: sock.updateMediaMessage
+              }
+            );
+
+            let ext = '';
+            let type = '';
+            if (innerMessage.imageMessage) {
+              ext = getExtension(innerMessage.imageMessage.mimetype, '.jpg');
+              type = 'image';
+            } else if (innerMessage.videoMessage) {
+              ext = getExtension(innerMessage.videoMessage.mimetype, '.mp4');
+              type = 'video';
+            } else if (innerMessage.audioMessage) {
+              ext = getExtension(innerMessage.audioMessage.mimetype, '.ogg');
+              type = 'audio';
+            } else if (innerMessage.documentMessage) {
+              const origName = innerMessage.documentMessage.fileName || '';
+              ext = origName ? path.extname(origName) : getExtension(innerMessage.documentMessage.mimetype, '.bin');
+              type = 'document';
+            }
+
+            const fileName = `${entry.id}${ext}`;
+            const filePath = path.join(MEDIA_DIR, fileName);
+            fs.writeFileSync(filePath, buffer);
+            console.log(`[WA] Media guardada en: ${filePath}`);
+
+            entry.mediaUrl = `/api/media?file=${encodeURIComponent(fileName)}`;
+            entry.mediaType = type;
+            if (type === 'document') {
+              entry.fileName = innerMessage.documentMessage.fileName || fileName;
+            }
+          } catch (downloadErr) {
+            console.error('[WA] Error descargando media:', downloadErr.message);
+          }
+        }
 
         if (!global.waMessages[fullNumber]) global.waMessages[fullNumber] = [];
         const seen = global.waMessages[fullNumber].some(x => x.id === entry.id);
@@ -318,6 +435,14 @@ async function main() {
 
   // WhatsApp en background — un error aquí NO detiene Next.js
   startWhatsApp().catch(err => console.error('[WA] Error en arranque inicial:', err?.message));
+
+  // Rutina de limpieza automática de multimedia antigua
+  try {
+    cleanOldMediaFiles();
+    setInterval(cleanOldMediaFiles, 12 * 60 * 60 * 1000);
+  } catch (cleanErr) {
+    console.error('[System] Error al iniciar rutina de limpieza:', cleanErr.message);
+  }
 
   console.log('[Next] Preparando entorno...');
   await app.prepare();

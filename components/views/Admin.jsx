@@ -125,7 +125,14 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
       view360Fields: view360Fields,
       funnelCardFields: funnelCardFields,
       linkSearchFields: linkSearchFields,
-      wa_predefs: waPredefs.filter(p => p.text?.trim() || p.title?.trim()),
+      wa_predefs: waPredefs
+        .filter(p => p.text?.trim() || p.title?.trim())
+        .map(p => {
+          // Strip imageBase64 blobs — too large for GAS payload limit.
+          // Images/files are now stored on the server and referenced via files[].
+          const { imageBase64: _dropped, ...rest } = p;
+          return rest;
+        }),
       bdayDefaultMessage: bdayDefaultMessage.trim() || '¡Hola {Nombre_Persona}! 🎉 Hoy es tu día especial. ¡Feliz cumpleaños!',
       defaultTheme: defaultTheme
     };
@@ -946,49 +953,118 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
                 ))}
               </div>
 
-              {/* Image upload */}
-              <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ padding: '4px 10px', borderRadius: '5px', border: '1px solid var(--brd)', background: 'var(--s1)', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text)' }}>
-                    📎 {obj.imageBase64 ? 'Cambiar imagen' : 'Adjuntar imagen'}
-                  </span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    style={{ display: 'none' }}
-                    onChange={e => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      if (file.size > 5 * 1024 * 1024) { alert('La imagen no debe superar 5 MB'); return; }
-                      const reader = new FileReader();
-                      reader.onload = ev => {
-                        const np = [...waPredefs];
-                        np[idx] = { ...np[idx], imageBase64: ev.target.result };
-                        setWaPredefs(np);
-                      };
-                      reader.readAsDataURL(file);
-                    }}
-                  />
-                </label>
-                {obj.imageBase64 && (
-                  <>
-                    <img src={obj.imageBase64} alt="preview" style={{ width: 44, height: 44, objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--brd)' }} />
-                    <button
-                      onClick={() => {
-                        const np = [...waPredefs];
-                        np[idx] = { ...np[idx], imageBase64: null };
-                        setWaPredefs(np);
+              {/* File upload */}
+              <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                  <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid var(--brd)', background: 'var(--s1)', fontSize: '0.72rem', fontWeight: 600, color: 'var(--text)' }}>
+                      📎 Adjuntar Archivo (Imagen, PDF, etc.)
+                    </span>
+                    <input
+                      type="file"
+                      style={{ display: 'none' }}
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        if (file.size > 20 * 1024 * 1024) { Swal.fire('Error', 'El archivo no debe superar los 20 MB', 'error'); return; }
+                        
+                        Swal.fire({ title: 'Subiendo archivo...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+                        try {
+                          const formData = new FormData();
+                          formData.append('file', file);
+                          
+                          const res = await fetch('/api/upload', {
+                            method: 'POST',
+                            body: formData
+                          });
+                          const data = await res.json();
+                          Swal.close();
+                          
+                          if (data.ok) {
+                            const np = [...waPredefs];
+                            const currentFiles = np[idx].files || [];
+                            np[idx] = { 
+                              ...np[idx], 
+                              files: [...currentFiles, { name: data.name, url: data.url, mimeType: data.mimeType }]
+                            };
+                            setWaPredefs(np);
+                          } else {
+                            Swal.fire('Error', data.error || 'No se pudo subir el archivo', 'error');
+                          }
+                        } catch (err) {
+                          Swal.close();
+                          Swal.fire('Error', 'Error de red al subir el archivo', 'error');
+                        }
                       }}
-                      style={{ fontSize: '0.7rem', color: 'var(--red)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-                    >✕ Quitar</button>
-                  </>
+                    />
+                  </label>
+                  
+                  {/* Render old imageBase64 if present */}
+                  {obj.imageBase64 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(234,179,8,.1)', border: '1px solid rgba(234,179,8,.2)', padding: '4px 8px', borderRadius: '6px' }}>
+                      <img src={obj.imageBase64} alt="preview" style={{ width: 32, height: 32, objectFit: 'cover', borderRadius: '4px' }} />
+                      <span style={{ fontSize: '0.68rem', color: 'var(--muted)' }}>Imagen anterior (Migrada)</span>
+                      <button
+                        onClick={() => {
+                          const np = [...waPredefs];
+                          np[idx] = { ...np[idx], imageBase64: null };
+                          setWaPredefs(np);
+                        }}
+                        style={{ fontSize: '0.7rem', color: 'var(--red)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                      >✕</button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Render list of uploaded files */}
+                {obj.files && obj.files.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '4px' }}>
+                    {obj.files.map((file, fIdx) => (
+                      <span 
+                        key={fIdx} 
+                        style={{ 
+                          display: 'inline-flex', 
+                          alignItems: 'center', 
+                          gap: '6px', 
+                          padding: '4px 8px', 
+                          background: 'var(--s1)', 
+                          border: '1px solid var(--brd)', 
+                          borderRadius: '6px', 
+                          fontSize: '0.72rem' 
+                        }}
+                      >
+                        📄 {file.name}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const np = [...waPredefs];
+                            np[idx] = { 
+                              ...np[idx], 
+                              files: np[idx].files.filter((_, i) => i !== fIdx)
+                            };
+                            setWaPredefs(np);
+                          }}
+                          style={{ 
+                            border: 'none', 
+                            background: 'none', 
+                            color: 'var(--red)', 
+                            cursor: 'pointer', 
+                            fontWeight: 'bold',
+                            padding: '0 2px'
+                          }}
+                        >
+                          ✕
+                        </button>
+                      </span>
+                    ))}
+                  </div>
                 )}
               </div>
             </div>
           ))}
           <button
             className="btn btnda"
-            onClick={() => setWaPredefs([...waPredefs, { title: '', text: '', imageBase64: null }])}
+            onClick={() => setWaPredefs([...waPredefs, { title: '', text: '', imageBase64: null, files: [] }])}
             style={{ width: 'fit-content' }}
           >+ Agregar Respuesta</button>
         </div>
