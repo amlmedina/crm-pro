@@ -6,8 +6,11 @@ import Swal from 'sweetalert2';
 export default function Campaigns({ leads, cfg, user, openDrawer, initialSelection = [], onClearSelection }) {
     const [campaigns, setCampaigns] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [view, setView] = useState(initialSelection.length > 0 ? 'create' : 'list'); // 'list', 'create', 'details', 'birthdays'
+    const [view, setView] = useState(initialSelection.length > 0 ? 'create' : 'list'); // 'list', 'create', 'details', 'birthdays', 'drip'
     const [selectedCampaign, setSelectedCampaign] = useState(null);
+
+    // Drip State
+    const [dripRules, setDripRules] = useState([]);
 
     // Birthday scheduling state
     const [bdayMonth, setBdayMonth] = useState((new Date().getMonth() + 1).toString().padStart(2, '0'));
@@ -15,6 +18,7 @@ export default function Campaigns({ leads, cfg, user, openDrawer, initialSelecti
         cfg?.bdayDefaultMessage || '¡Hola {Nombre_Persona}! 🎉 Hoy es tu día especial. De parte de todo el equipo, te deseamos un feliz cumpleaños. ¡Que lo disfrutes mucho!'
     );
     const [bdayHour, setBdayHour] = useState(10);
+    const [bdayImage, setBdayImage] = useState(null);
 
     // Form state
     const [name, setName] = useState('');
@@ -89,6 +93,11 @@ export default function Campaigns({ leads, cfg, user, openDrawer, initialSelecti
             const res = await fetch('/api/campaigns');
             const data = await res.json();
             if (data && !data.error) setCampaigns(data);
+            
+            // Fetch Drip rules
+            const resDrip = await fetch('/api/drip');
+            const dripData = await resDrip.json();
+            if (Array.isArray(dripData)) setDripRules(dripData);
         } catch (e) {
             console.error("Error fetching campaigns", e);
         } finally {
@@ -160,6 +169,16 @@ export default function Campaigns({ leads, cfg, user, openDrawer, initialSelecti
         reader.readAsDataURL(file);
     }
 
+    function handleBdayImageChange(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            setBdayImage(reader.result);
+        };
+        reader.readAsDataURL(file);
+    }
+
     async function handleSubmit() {
         if (selectedContacts.length === 0) return Swal.fire('Error', 'Selecciona al menos un contacto', 'error');
         if (!message.trim()) return Swal.fire('Error', 'Escribe un mensaje', 'error');
@@ -171,7 +190,7 @@ export default function Campaigns({ leads, cfg, user, openDrawer, initialSelecti
                 message,
                 image,
                 contacts: selectedContacts,
-                scheduledAt: scheduledAt || new Date().toISOString()
+                scheduledAt: scheduledAt ? new Date(scheduledAt).toISOString() : new Date().toISOString()
             }
         };
 
@@ -231,15 +250,15 @@ export default function Campaigns({ leads, cfg, user, openDrawer, initialSelecti
 
         for (const lead of bdayLeads) {
             const day = String(lead.Cumpleanos).split('-')[1];
-            // Format: YYYY-MM-DDTHH:00
-            const scheduledDateStr = `${currentYear}-${bdayMonth}-${day}T${String(bdayHour).padStart(2, '0')}:00`;
+            // Format: YYYY-MM-DDTHH:00:00.000Z
+            const scheduledDateStr = `${currentYear}-${bdayMonth}-${day}T${String(bdayHour).padStart(2, '0')}:00:00.000Z`;
             
             const payload = {
                 action: 'create',
                 campaign: {
                     name: `🎂 Cumpleaños - ${lead.Nombre_Persona || 'Contacto'}`,
                     message: bdayMessage,
-                    image: null,
+                    image: bdayImage,
                     scheduledAt: scheduledDateStr,
                     contacts: [{
                         phone: lead.Telefono || lead.ID_Contacto,
@@ -265,6 +284,7 @@ export default function Campaigns({ leads, cfg, user, openDrawer, initialSelecti
         fetchCampaigns();
         Swal.fire('¡Listo!', `Se programaron ${success} campañas exitosamente.${errors > 0 ? ` Hubo ${errors} errores.` : ''}`, 'success');
         setView('list');
+        setBdayImage(null);
     }
 
     async function deleteCampaign(id) {
@@ -316,11 +336,33 @@ export default function Campaigns({ leads, cfg, user, openDrawer, initialSelecti
         }
     }
 
+    async function saveDripRules(newRules) {
+        try {
+            const res = await fetch('/api/drip', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'save_rules', rules: newRules })
+            });
+            const data = await res.json();
+            if (data.success) {
+                setDripRules(data.rules);
+                Swal.fire('Guardado', 'Reglas de seguimiento actualizadas', 'success');
+            } else {
+                Swal.fire('Error', data.error || 'No se pudo guardar', 'error');
+            }
+        } catch (e) {
+            Swal.fire('Error', 'Error de conexión', 'error');
+        }
+    }
+
     return (
         <div className="view on" style={{ display: 'flex', flexDirection: 'column', padding: '20px', gap: '20px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h2 style={{ margin: 0 }}>📣 Gestión de Campañas</h2>
                 <div style={{ display: 'flex', gap: '10px' }}>
+                    <button className="btn btng" onClick={() => setView('drip')} style={{ background: 'var(--navy)', color: '#fff' }}>
+                        🤖 Secuencias Auto (Drip)
+                    </button>
                     <button className="btn btng" onClick={() => setView('birthdays')} style={{ background: 'var(--yel)', color: '#000' }}>
                         🎂 Programar Cumpleaños
                     </button>
@@ -374,6 +416,17 @@ export default function Campaigns({ leads, cfg, user, openDrawer, initialSelecti
                         </div>
                     </div>
 
+                    <div className="fg" style={{ marginTop: '15px' }}>
+                        <label className="lbl">Incluir Imagen (Opcional)</label>
+                        <input type="file" accept="image/*" onChange={handleBdayImageChange} />
+                        {bdayImage && (
+                            <div style={{ marginTop: '10px', position: 'relative', display: 'inline-block' }}>
+                                <img src={bdayImage} style={{ maxWidth: '200px', borderRadius: '8px', border: '1px solid var(--brd)' }} />
+                                <button className="btn btnr" style={{ display: 'block', marginTop: '5px' }} onClick={() => setBdayImage(null)}>Quitar Imagen</button>
+                            </div>
+                        )}
+                    </div>
+
                     <div style={{ marginTop: '20px', padding: '15px', background: 'var(--s2)', borderRadius: '8px', border: '1px solid var(--brd)' }}>
                         <h4 style={{ margin: '0 0 10px 0' }}>Contactos que cumplen en el mes seleccionado:</h4>
                         <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
@@ -406,6 +459,77 @@ export default function Campaigns({ leads, cfg, user, openDrawer, initialSelecti
                     >
                         🚀 Programar Cumpleaños del Mes
                     </button>
+                </div>
+            ) : view === 'drip' ? (
+                <div className="card" style={{ padding: '20px', maxWidth: '800px', margin: '0 auto', width: '100%' }}>
+                    <h2 style={{ margin: '0 0 5px 0' }}>🤖 Secuencias de Auto-Seguimiento</h2>
+                    <p style={{ color: 'var(--muted)', fontSize: '0.85rem', marginBottom: '20px' }}>
+                        Define reglas para enviar mensajes automáticamente a los contactos que NO responden después de cierto tiempo. Las reglas solo aplican si el ÚLTIMO mensaje de la conversación lo enviaste tú.
+                    </p>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                        {dripRules.sort((a, b) => a.days - b.days).map((rule, index) => (
+                            <div key={rule.id} style={{ padding: '15px', background: 'var(--s1)', border: '1px solid var(--brd)', borderRadius: '8px', display: 'flex', gap: '15px', alignItems: 'flex-start' }}>
+                                <div style={{ background: 'var(--navy)', color: '#fff', width: '30px', height: '30px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>
+                                    {index + 1}
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                                        <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>Esperar</label>
+                                        <input 
+                                            type="number" 
+                                            min="1" 
+                                            className="inp" 
+                                            style={{ width: '80px', padding: '5px' }} 
+                                            value={rule.days}
+                                            onChange={(e) => {
+                                                const newRules = [...dripRules];
+                                                newRules[index].days = parseInt(e.target.value) || 1;
+                                                setDripRules(newRules);
+                                            }}
+                                        />
+                                        <span style={{ fontSize: '0.85rem' }}>días sin respuesta</span>
+                                    </div>
+                                    <textarea 
+                                        className="inp" 
+                                        style={{ height: '80px', resize: 'vertical' }}
+                                        placeholder="Escribe el mensaje de seguimiento aquí..."
+                                        value={rule.message}
+                                        onChange={(e) => {
+                                            const newRules = [...dripRules];
+                                            newRules[index].message = e.target.value;
+                                            setDripRules(newRules);
+                                        }}
+                                    />
+                                </div>
+                                <button 
+                                    className="btn btnr" 
+                                    style={{ padding: '8px' }}
+                                    onClick={() => setDripRules(dripRules.filter(r => r.id !== rule.id))}
+                                >✕ Eliminar</button>
+                            </div>
+                        ))}
+
+                        {dripRules.length === 0 && (
+                            <div style={{ padding: '20px', textAlign: 'center', color: 'var(--muted)', background: 'var(--s1)', borderRadius: '8px' }}>
+                                No hay reglas de seguimiento automático configuradas.
+                            </div>
+                        )}
+
+                        <button 
+                            className="btn btngh" 
+                            style={{ padding: '10px', borderStyle: 'dashed' }}
+                            onClick={() => setDripRules([...dripRules, { id: Date.now().toString(), days: 1, message: '' }])}
+                        >
+                            + Agregar nueva regla
+                        </button>
+                    </div>
+
+                    <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid var(--brd)', display: 'flex', justifyContent: 'flex-end' }}>
+                        <button className="btn btng" style={{ padding: '10px 20px' }} onClick={() => saveDripRules(dripRules)}>
+                            💾 Guardar Cambios
+                        </button>
+                    </div>
                 </div>
             ) : view === 'list' ? (
                 <div id="twrap" style={{ flex: 1 }}>

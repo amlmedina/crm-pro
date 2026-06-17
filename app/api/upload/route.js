@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { verifySession } from '@/lib/session';
 
 const BASE_STORAGE = fs.existsSync('/app/storage') ? '/app/storage' : process.cwd();
 const SESSION_DIR = path.join(BASE_STORAGE, 'wa_session');
@@ -8,7 +9,7 @@ const MEDIA_DIR = path.join(SESSION_DIR, 'media');
 
 export async function POST(req) {
     const sessionCookie = req.cookies.get('crm_session_secure');
-    if (!sessionCookie?.value) {
+    if (!sessionCookie?.value || !verifySession(sessionCookie.value)) {
         return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 

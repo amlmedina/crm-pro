@@ -19,6 +19,10 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
   const [bdayDefaultMessage, setBdayDefaultMessage] = useState('');
   const [defaultTheme, setDefaultTheme] = useState('corporativo');
 
+  // Drip Rules state
+  const [dripRules, setDripRules] = useState([]);
+  const [dripSaving, setDripSaving] = useState(false);
+
   // Users state
   const [users, setUsers] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
@@ -53,7 +57,37 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
     }
     loadUsers();
     loadWaStatus();
+    loadDripRules();
   }, [cfg]);
+
+  async function loadDripRules() {
+    try {
+      const res = await fetch('/api/drip');
+      const data = await res.json();
+      if (Array.isArray(data)) setDripRules(data);
+    } catch {}
+  }
+
+  async function saveDripRules() {
+    setDripSaving(true);
+    try {
+      const res = await fetch('/api/drip', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'save_rules', rules: dripRules })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setDripRules(data.rules);
+        Swal.fire({ title: '✅ Reglas Drip guardadas', icon: 'success', timer: 1500, showConfirmButton: false });
+      } else {
+        Swal.fire('Error', data.error || 'No se pudo guardar', 'error');
+      }
+    } catch {
+      Swal.fire('Error', 'Error de conexión', 'error');
+    }
+    setDripSaving(false);
+  }
 
   async function waFetch(action, extra = {}) {
     const res = await fetch('/api/whatsapp', {
@@ -1086,6 +1120,72 @@ export default function Admin({ cfg, setCfg, currentTheme, changeTheme }) {
         />
       </div>
       )} {/* end bday */}
+
+      {adminTab === 'whatsapp' && (
+      <div className="acard" style={{ borderLeft: '4px solid var(--navy)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+          <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--navy)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>🤖</div>
+          <div>
+            <h3 style={{ margin: 0, fontSize: '0.88rem', color: 'var(--text)' }}>Secuencias de Auto-Seguimiento (Drip)</h3>
+            <p style={{ margin: 0, fontSize: '0.73rem', color: 'var(--muted)' }}>Define reglas globales. Si un contacto tiene Drip activado y no contesta, el sistema le enviará estos mensajes automáticamente.</p>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {dripRules.sort((a, b) => a.days - b.days).map((rule, idx) => (
+            <div key={rule.id} style={{ padding: '14px', background: 'var(--s2)', border: '1px solid var(--brd)', borderRadius: '8px', display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
+              <div style={{ background: 'var(--navy)', color: '#fff', width: 28, height: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '0.8rem', flexShrink: 0 }}>
+                {idx + 1}
+              </div>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <label style={{ fontSize: '0.82rem', fontWeight: 600 }}>Esperar</label>
+                  <input
+                    type="number" min="1"
+                    className="inp"
+                    style={{ width: '70px', padding: '5px 8px' }}
+                    value={rule.days}
+                    onChange={e => { const n = [...dripRules]; n[idx].days = parseInt(e.target.value) || 1; setDripRules(n); }}
+                  />
+                  <span style={{ fontSize: '0.82rem' }}>días sin respuesta</span>
+                </div>
+                <textarea
+                  className="inp"
+                  style={{ minHeight: '70px', resize: 'vertical' }}
+                  placeholder="Escribe el mensaje de seguimiento automático..."
+                  value={rule.message}
+                  onChange={e => { const n = [...dripRules]; n[idx].message = e.target.value; setDripRules(n); }}
+                />
+              </div>
+              <button
+                className="btn btnr"
+                style={{ padding: '6px 10px', fontSize: '0.75rem', flexShrink: 0 }}
+                onClick={() => setDripRules(dripRules.filter(r => r.id !== rule.id))}
+              >✕</button>
+            </div>
+          ))}
+
+          {dripRules.length === 0 && (
+            <div style={{ padding: '20px', textAlign: 'center', color: 'var(--muted)', background: 'var(--s2)', borderRadius: '8px', fontSize: '0.82rem' }}>
+              No hay reglas configuradas. Agrega una para empezar.
+            </div>
+          )}
+
+          <button
+            className="btn btngh"
+            style={{ padding: '10px', borderStyle: 'dashed' }}
+            onClick={() => setDripRules([...dripRules, { id: Date.now().toString(), days: 1, message: '' }])}
+          >+ Agregar Regla de Seguimiento</button>
+
+          <button
+            className="btn btng"
+            style={{ padding: '10px' }}
+            disabled={dripSaving}
+            onClick={saveDripRules}
+          >{dripSaving ? '⏳ Guardando...' : '💾 Guardar Reglas Drip'}</button>
+        </div>
+      </div>
+      )} {/* end drip */}
 
       {adminTab === 'apariencia' && (
       <>

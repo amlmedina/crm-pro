@@ -25,6 +25,8 @@ const MESSAGES_FILE        = path.join(SESSION_DIR,  'messages.json');
 const UNREADS_FILE         = path.join(SESSION_DIR,  'unreads.json');
 const TASKS_DATA_DIR       = path.join(BASE_STORAGE, 'crm_data');
 const CAMPAIGNS_FILE       = path.join(TASKS_DATA_DIR, 'campaigns.json');
+const DRIP_RULES_FILE      = path.join(TASKS_DATA_DIR, 'drip_rules.json');
+const DRIP_STATE_FILE      = path.join(TASKS_DATA_DIR, 'drip_state.json');
 const MEDIA_RETENTION_DAYS = 30; // Tiempo máximo en días para conservar fotos y notas de voz localmente
 
 function ensureDataDirs() {
@@ -86,10 +88,26 @@ function loadCampaigns() {
 function persistCampaigns() {
   try { fs.writeFileSync(CAMPAIGNS_FILE, JSON.stringify(global.campaigns), 'utf-8'); } catch {}
 }
+function loadDripRules() {
+  try { if (fs.existsSync(DRIP_RULES_FILE)) return JSON.parse(fs.readFileSync(DRIP_RULES_FILE, 'utf-8')); } catch {}
+  return [];
+}
+function persistDripRules() {
+  try { fs.writeFileSync(DRIP_RULES_FILE, JSON.stringify(global.dripRules), 'utf-8'); } catch {}
+}
+function loadDripState() {
+  try { if (fs.existsSync(DRIP_STATE_FILE)) return JSON.parse(fs.readFileSync(DRIP_STATE_FILE, 'utf-8')); } catch {}
+  return {};
+}
+function persistDripState() {
+  try { fs.writeFileSync(DRIP_STATE_FILE, JSON.stringify(global.dripState), 'utf-8'); } catch {}
+}
 
 global.persistMessages  = persistMessages;
 global.persistUnreads   = persistUnreads;
 global.persistCampaigns = persistCampaigns;
+global.persistDripRules = persistDripRules;
+global.persistDripState = persistDripState;
 
 // ── Versión del servidor (actualizar para confirmar despliegues) ───────────────
 const SERVER_VERSION = 'v2026.04.20-LID-v2';
@@ -100,6 +118,8 @@ global.waSocket   = null;
 global.waMessages = loadMessages();
 global.waUnreads  = loadUnreads();
 global.campaigns  = loadCampaigns();
+global.dripRules  = loadDripRules();
+global.dripState  = loadDripState();
 
 // ── Funciones auxiliares para archivos multimedia ──────────────────────────────
 function getMediaMessage(message) {
@@ -363,9 +383,27 @@ async function startWhatsApp() {
             
             // Personalización dinámica de variables
             let finalMsg = campaign.message;
-            Object.keys(contact).forEach(key => {
-                if (key !== 'phone' && contact[key] !== undefined && contact[key] !== null) {
-                    finalMsg = finalMsg.replace(new RegExp(`\\{${key}\\}`, 'gi'), contact[key]);
+            const vars = { ...contact };
+
+            // Normalizar aliases comunes para que funcionen intercambiablemente
+            const nameVal = contact.Nombre_Persona || contact.nombre || contact.Nombre || '';
+            vars['Nombre_Persona'] = nameVal;
+            vars['nombre'] = nameVal;
+            vars['Nombre'] = nameVal;
+
+            const companyVal = contact.Nombre_Empresa || contact.empresa || contact.Empresa || '';
+            vars['Nombre_Empresa'] = companyVal;
+            vars['empresa'] = companyVal;
+            vars['Empresa'] = companyVal;
+
+            const phoneVal = contact.Telefono || contact.phone || contact.ID_Contacto || '';
+            vars['Telefono'] = phoneVal;
+            vars['phone'] = phoneVal;
+            vars['ID_Contacto'] = phoneVal;
+
+            Object.keys(vars).forEach(key => {
+                if (key !== 'phone' && vars[key] !== undefined && vars[key] !== null) {
+                    finalMsg = finalMsg.replace(new RegExp(`\\{${key}\\}`, 'gi'), vars[key]);
                 }
             });
 
@@ -415,9 +453,90 @@ async function startWhatsApp() {
     }
   }
 
+  // ── Motor de Secuencias (Drip Campaigns) ─────────────────────────────────
+  async function processDripLoop() {
+    console.log('[Drip] Iniciando motor de seguimiento automático...');
+    
+    while (true) {
+      await new Promise(r => setTimeout(r, 60000)); // Revisar cada 1 minuto
+      
+      if (!global.waSocket || !global.waStatus.connected) continue;
+      if (!global.dripRules || global.dripRules.length === 0) continue;
+
+      // Ordenar reglas por días de mayor a menor para procesar primero los más antiguos
+      const rules = [...global.dripRules].sort((a, b) => b.days - a.days);
+      const now = Date.now();
+
+      for (const [phone, msgs] of Object.entries(global.waMessages)) {
+        if (!msgs || msgs.length === 0) continue;
+        
+        // Skip LIDs (no phone number to save properly)
+        if (phone.includes('@lid')) continue;
+
+        // Skip if drip is not enabled for this contact
+        if (!global.dripState[phone]?.enabled) continue;
+
+        const lastMsg = msgs[msgs.length - 1];
+        
+        // Solo aplica si el ÚLTIMO mensaje lo enviamos NOSOTROS
+        if (!lastMsg.fromMe) {
+            // Si el cliente respondió, reseteamos/borramos el estado de la secuencia para él
+            if (global.dripState[phone]) {
+                delete global.dripState[phone];
+                global.persistDripState();
+            }
+            continue;
+        }
+
+        const ageMs = now - lastMsg.timestamp;
+        const ageDays = ageMs / (1000 * 60 * 60 * 24);
+
+        for (const rule of rules) {
+            if (ageDays >= rule.days) {
+                // Verificar si ya le enviamos esta regla
+                const state = global.dripState[phone] || {};
+                if (state[rule.id]) continue; // Ya se le envió esta regla
+
+                console.log(`[Drip] Disparando regla "${rule.days} días" para ${phone}`);
+                
+                try {
+                    const jid = `${phone}@s.whatsapp.net`;
+                    await global.waSocket.sendMessage(jid, { text: rule.message.trim() });
+                    
+                    // Registrar en historial
+                    msgs.push({
+                      id: `drip_${Date.now()}`,
+                      from: phone,
+                      text: rule.message.trim(),
+                      fromMe: true,
+                      timestamp: Date.now(),
+                    });
+                    global.persistMessages();
+
+                    // Marcar regla como enviada
+                    if (!global.dripState[phone]) global.dripState[phone] = {};
+                    global.dripState[phone][rule.id] = true;
+                    global.persistDripState();
+                    
+                    // Anti-ban delay
+                    await new Promise(r => setTimeout(r, 6000));
+
+                } catch (err) {
+                    console.error(`[Drip] Error enviando a ${phone}:`, err.message);
+                }
+                
+                // Solo enviar una regla a la vez por persona
+                break;
+            }
+        }
+      }
+    }
+  }
+
   // Iniciar loops
   connect();
   processCampaignsLoop().catch(err => console.error('[Campaigns] Error fatal en loop:', err));
+  processDripLoop().catch(err => console.error('[Drip] Error fatal en loop:', err));
 }
 
 // ── Arranque principal ────────────────────────────────────────────────────────

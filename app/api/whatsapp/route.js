@@ -97,10 +97,12 @@ function toJid(phone) {
     return `${phone}@s.whatsapp.net`;
 }
 
+import { verifySession } from '@/lib/session';
+
 export async function POST(req) {
     // 1. Validar sesión CRM
     const sessionCookie = req.cookies.get('crm_session_secure');
-    if (!sessionCookie?.value) {
+    if (!sessionCookie?.value || !verifySession(sessionCookie.value)) {
         return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 

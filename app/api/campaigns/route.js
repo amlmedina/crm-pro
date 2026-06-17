@@ -7,9 +7,11 @@ import path from 'path';
  * Lee/Escribe global.campaigns (sincronizado con server.js)
  */
 
+import { verifySession } from '@/lib/session';
+
 export async function GET(req) {
     const sessionCookie = req.cookies.get('crm_session_secure');
-    if (!sessionCookie?.value) {
+    if (!sessionCookie?.value || !verifySession(sessionCookie.value)) {
         return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
@@ -20,7 +22,7 @@ export async function GET(req) {
 
 export async function POST(req) {
     const sessionCookie = req.cookies.get('crm_session_secure');
-    if (!sessionCookie?.value) {
+    if (!sessionCookie?.value || !verifySession(sessionCookie.value)) {
         return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 

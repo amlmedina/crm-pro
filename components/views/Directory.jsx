@@ -68,7 +68,9 @@ export default function Directory({
         return !leadPhones.has(suffix);
       })
       .map(t => {
-         const dn = t.pushName ? `${t.pushName} [LID]` : `Desconocido (${t.id})`;
+         const isOculto = t.id.includes('@lid');
+         const phoneStr = isOculto ? '(WA Oculto)' : `(+${t.id})`;
+         const dn = t.pushName ? `${t.pushName} ${phoneStr}` : `Desconocido ${phoneStr}`;
          return {
            ID_Contacto: `unk_${t.id}`,
            Nombre_Persona: dn,

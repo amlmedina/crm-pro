@@ -63,6 +63,12 @@ export default function Drawer({ open, onClose, lead, leads, setLeads, tab, setT
   const camChunksRef = useRef([]);
   const camTimerRef = useRef(null);
 
+  const [dripEnabled, setDripEnabled] = useState(false);
+  const [showNotepad, setShowNotepad] = useState(false); // Colapsado por defecto
+  const [showDripConfig, setShowDripConfig] = useState(false);
+  const [dripRulesLocal, setDripRulesLocal] = useState([]);
+  const [dripRulesSaving, setDripRulesSaving] = useState(false);
+  
   async function loadWaHistory(phone, lid) {
     if (!phone && !lid) return;
     setWaLoadingHist(true);
@@ -81,11 +87,45 @@ export default function Drawer({ open, onClose, lead, leads, setLeads, tab, setT
       } else {
         setWaMessages(Array.isArray(data) ? data : []);
       }
+
+      // Cargar estado de Drip
+      if (phone) {
+        const resDrip = await fetch(`/api/drip?phone=${phone}`);
+        if (resDrip.ok) {
+            const dripData = await resDrip.json();
+            setDripEnabled(!!dripData.enabled);
+        }
+      }
     } catch {
       setWaError('Error de conexión con MiBot');
       setWaMessages([]);
     }
     setWaLoadingHist(false);
+  }
+
+  async function toggleDrip() {
+    const phone = lead?.Telefono;
+    if (!phone) return Swal.fire('Error', 'Se requiere un número de teléfono válido', 'error');
+    
+    try {
+        const newVal = !dripEnabled;
+        const res = await fetch('/api/drip', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'toggle_drip', phone, enabled: newVal })
+        });
+        const data = await res.json();
+        if (data.success) {
+            setDripEnabled(newVal);
+            if (newVal) {
+                Swal.fire({ title: '🤖 Activado', text: 'El auto-seguimiento enviará mensajes automáticamente si el cliente deja de responder', icon: 'success', timer: 2000, showConfirmButton: false });
+            } else {
+                Swal.fire({ title: 'Apagado', text: 'Secuencia detenida', icon: 'info', timer: 1500, showConfirmButton: false });
+            }
+        }
+    } catch {
+        Swal.fire('Error', 'No se pudo actualizar el estado de seguimiento', 'error');
+    }
   }
 
   async function sendWaText(txt) {
@@ -1142,7 +1182,9 @@ export default function Drawer({ open, onClose, lead, leads, setLeads, tab, setT
           </div>
 
           {/* WhatsApp Chat Panel */}
-          <div className={`dpanel ${tab === 'wa' ? 'on' : ''}`} style={{ display: tab === 'wa' ? 'flex' : 'none', flexDirection: 'column', flex: 1, minHeight: 0, padding: 0 }}>
+          <div className={`dpanel ${tab === 'wa' ? 'on' : ''}`} style={{ display: tab === 'wa' ? 'flex' : 'none', flexDirection: 'row', flex: 1, minHeight: 0, padding: 0, position: 'relative' }}>
+            {/* LEFT COLUMN: CHAT */}
+            <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, borderRight: '1px solid var(--brd)' }}>
             {/* Header */}
             <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--brd)', display: 'flex', alignItems: 'center', gap: '10px', background: 'var(--s2)', flexWrap: 'wrap' }}>
               <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#25d366', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>💬</div>
@@ -1506,6 +1548,155 @@ export default function Drawer({ open, onClose, lead, leads, setLeads, tab, setT
                 </p>
               </div>
             )}
+            </div> {/* END LEFT COLUMN */}
+
+            {/* RIGHT COLUMN: NOTEPAD (collapsible) */}
+            <div style={{ 
+              width: showNotepad ? '30%' : '36px', 
+              minWidth: showNotepad ? '280px' : '36px', 
+              display: 'flex', flexDirection: 'column', 
+              background: 'var(--s1)', 
+              borderLeft: '1px solid var(--brd)',
+              transition: 'width 0.2s ease, min-width 0.2s ease',
+              overflow: 'hidden',
+              flexShrink: 0
+            }}>
+              {/* Toggle strip / header */}
+              <div 
+                onClick={() => {
+                  if (!showNotepad) {
+                    fetch('/api/drip').then(r => r.json()).then(data => { if (Array.isArray(data)) setDripRulesLocal(data); }).catch(() => {});
+                  }
+                  setShowNotepad(v => !v);
+                  setShowDripConfig(false);
+                }}
+                style={{ 
+                  padding: showNotepad ? '10px 14px' : '0',
+                  borderBottom: showNotepad ? '1px solid var(--brd)' : 'none', 
+                  display: 'flex', 
+                  justifyContent: showNotepad ? 'space-between' : 'center',
+                  alignItems: 'center', 
+                  flexWrap: 'wrap', gap: 6,
+                  cursor: !showNotepad ? 'pointer' : 'default',
+                  minHeight: showNotepad ? 'auto' : '100%',
+                  writingMode: showNotepad ? 'horizontal-tb' : 'vertical-rl',
+                }}>
+                {!showNotepad ? (
+                  <span style={{ 
+                    fontSize: '0.72rem', fontWeight: 700, color: 'var(--navy)', 
+                    letterSpacing: '0.5px', whiteSpace: 'nowrap',
+                    transform: 'rotate(180deg)',
+                    userSelect: 'none'
+                  }}>📝 Notas &amp; Drip</span>
+                ) : (
+                  <>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setShowDripConfig(false); }}
+                      style={{ background: !showDripConfig ? 'var(--navy)' : 'transparent', color: !showDripConfig ? '#fff' : 'var(--muted)', border: '1px solid var(--brd)', borderRadius: 6, padding: '4px 10px', fontSize: '0.72rem', cursor: 'pointer', fontWeight: 600 }}
+                    >📝 Notas</button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setShowDripConfig(true); }}
+                      style={{ background: showDripConfig ? 'var(--navy)' : 'transparent', color: showDripConfig ? '#fff' : 'var(--muted)', border: '1px solid var(--brd)', borderRadius: 6, padding: '4px 10px', fontSize: '0.72rem', cursor: 'pointer', fontWeight: 600 }}
+                    >🤖 Drip</button>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    {!showDripConfig && lead?.Telefono && !String(lead?.Telefono).includes('@lid') && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); toggleDrip(); }}
+                        style={{
+                          background: dripEnabled ? '#25d366' : 'var(--s2)',
+                          color: dripEnabled ? '#fff' : 'var(--muted)',
+                          border: `1px solid ${dripEnabled ? '#25d366' : 'var(--brd)'}`,
+                          borderRadius: '20px', padding: '3px 8px',
+                          fontSize: '0.68rem', cursor: 'pointer', fontWeight: 700,
+                          transition: 'all 0.2s'
+                        }}
+                        title={dripEnabled ? 'Apagar Drip para este contacto' : 'Encender Drip para este contacto'}
+                      >
+                        {dripEnabled ? '✅ Drip ON' : '⭕ Drip OFF'}
+                      </button>
+                    )}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setShowNotepad(false); }}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1rem', color: 'var(--muted)', padding: '2px 4px' }}
+                      title="Cerrar panel"
+                    >✕</button>
+                  </div>
+                  </>
+                )}
+              </div>
+
+              {/* NOTAS VIEW */}
+              {showNotepad && !showDripConfig && (
+                <div style={{ flex: 1, padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <textarea
+                    value={notas}
+                    onChange={e => setNotas(e.target.value)}
+                    placeholder="Notas, acuerdos o resumen de la conversación..."
+                    style={{ flex: 1, resize: 'none', background: 'var(--bg)', border: '1px solid var(--brd)', borderRadius: '8px', padding: '10px', fontSize: '0.82rem', outline: 'none', color: 'var(--text)', fontFamily: 'inherit' }}
+                  />
+                  <button onClick={doSaveInt} className="btn btng" disabled={loading} style={{ width: '100%', padding: '9px', fontSize: '0.82rem' }}>
+                    {loading ? '⏳ Guardando...' : '💾 Guardar Notas'}
+                  </button>
+                </div>
+              )}
+
+              {/* DRIP CONFIG VIEW */}
+              {showNotepad && showDripConfig && (
+                <div style={{ flex: 1, overflowY: 'auto', padding: '14px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--muted)', margin: 0, lineHeight: 1.4 }}>
+                    Reglas globales de auto-seguimiento. Puedes modificarlas para este contacto.
+                  </p>
+                  {dripRulesLocal.sort((a, b) => a.days - b.days).map((rule, idx) => (
+                    <div key={rule.id} style={{ background: 'var(--bg)', border: '1px solid var(--brd)', borderRadius: 8, padding: '10px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--muted)' }}>Paso {idx + 1}</span>
+                        <button onClick={() => setDripRulesLocal(dripRulesLocal.filter(r => r.id !== rule.id))} style={{ background: 'none', border: 'none', color: 'var(--red)', cursor: 'pointer', fontSize: '0.75rem', padding: 2 }}>✕</button>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ fontSize: '0.78rem', flexShrink: 0 }}>Esperar</span>
+                        <input
+                          type="number" min="1"
+                          value={rule.days}
+                          onChange={e => { const n = [...dripRulesLocal]; n[idx].days = parseInt(e.target.value) || 1; setDripRulesLocal(n); }}
+                          style={{ width: 52, padding: '4px 6px', fontSize: '0.8rem', border: '1px solid var(--brd)', borderRadius: 6, outline: 'none', background: 'var(--s1)', color: 'var(--text)' }}
+                        />
+                        <span style={{ fontSize: '0.78rem', flexShrink: 0 }}>días</span>
+                      </div>
+                      <textarea
+                        value={rule.message}
+                        onChange={e => { const n = [...dripRulesLocal]; n[idx].message = e.target.value; setDripRulesLocal(n); }}
+                        placeholder="Mensaje a enviar..."
+                        rows={3}
+                        style={{ resize: 'vertical', background: 'var(--s1)', border: '1px solid var(--brd)', borderRadius: 6, padding: '6px 8px', fontSize: '0.78rem', outline: 'none', color: 'var(--text)', fontFamily: 'inherit' }}
+                      />
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => setDripRulesLocal([...dripRulesLocal, { id: Date.now().toString(), days: 1, message: '' }])}
+                    style={{ background: 'transparent', border: '1px dashed var(--brd)', borderRadius: 8, padding: '8px', fontSize: '0.78rem', color: 'var(--muted)', cursor: 'pointer' }}
+                  >+ Agregar paso</button>
+                  <button
+                    disabled={dripRulesSaving}
+                    onClick={async () => {
+                      setDripRulesSaving(true);
+                      try {
+                        const res = await fetch('/api/drip', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'save_rules', rules: dripRulesLocal }) });
+                        const data = await res.json();
+                        if (data.success) { showToast('✅ Reglas guardadas'); }
+                        else { showToast('Error al guardar', 'err'); }
+                      } catch { showToast('Error de conexión', 'err'); }
+                      setDripRulesSaving(false);
+                    }}
+                    className="btn btng"
+                    style={{ width: '100%', padding: '9px', fontSize: '0.82rem' }}
+                  >
+                    {dripRulesSaving ? '⏳ Guardando...' : '💾 Guardar Reglas'}
+                  </button>
+                </div>
+              )}
+            </div> {/* END RIGHT COLUMN */}
 
           </div>
 
